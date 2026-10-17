@@ -12,7 +12,7 @@ import android.util.Base64
 
 /**
  * Encrypts and decrypts private key material using an AES-256-GCM key stored in
- * the Android Keystore. The key never leaves secure hardware.
+ * the Android Keystore. Hardware backing is device-dependent and is not guaranteed.
  *
  * Blob format: Base64(IV_12_bytes || ciphertext)
  */
@@ -71,6 +71,7 @@ object KeystoreManager {
     /** Decrypts a blob produced by [encrypt]. */
     fun decrypt(blob: String): String {
         val raw = Base64.decode(blob, Base64.NO_WRAP)
+        require(raw.size >= GCM_IV_LEN + GCM_TAG_BITS / 8) { "Invalid encrypted credential blob" }
         val iv         = raw.copyOfRange(0, GCM_IV_LEN)
         val ciphertext = raw.copyOfRange(GCM_IV_LEN, raw.size)
         val key        = KeyStore.getInstance(KEYSTORE).also { it.load(null) }
@@ -82,8 +83,8 @@ object KeystoreManager {
 
     /**
      * Returns the plain-text PEM for [entity], decrypting from [encryptedBlob] if present,
-     * or falling back to [SshKeyEntity.privateKeyPem] for unencrypted keys.
-     * Returns null if neither is available.
+     * Never uses the legacy plaintext field. Returns null for legacy records that
+     * have no encrypted blob; decryption errors are propagated to the caller.
      */
     fun getPrivateKeyPem(entity: SshKeyEntity): String? {
         val blob = entity.encryptedBlob
