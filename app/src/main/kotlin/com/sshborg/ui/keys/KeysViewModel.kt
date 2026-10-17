@@ -26,14 +26,9 @@ class KeysViewModel(app: Application) : AndroidViewModel(app) {
 
     fun generateKey(label: String, type: String, size: String = "", onDone: () -> Unit) = viewModelScope.launch {
         val (priv, pub) = SshManager.generateKeyPair(type, comment = commentFor(label), bits = size.toIntOrNull())
-        val encEnabled = prefs.keystoreEncryption.first()
-        val entity = if (encEnabled) {
-            val blob = withContext(Dispatchers.IO) { KeystoreManager.encrypt(priv) }
-            SshKeyEntity(label = label, keyType = type, privateKeyPem = "", encryptedBlob = blob, publicKey = pub)
-        } else {
-            SshKeyEntity(label = label, keyType = type, privateKeyPem = priv, publicKey = pub)
-        }
-        dao.upsert(entity)
+        // Hardened: never persist newly generated private keys as plaintext.
+        val blob = withContext(Dispatchers.IO) { KeystoreManager.encrypt(priv) }
+        dao.upsert(SshKeyEntity(label = label, keyType = type, privateKeyPem = "", encryptedBlob = blob, publicKey = pub))
         onDone()
     }
 
@@ -52,26 +47,9 @@ class KeysViewModel(app: Application) : AndroidViewModel(app) {
         val pubKey = withComment(imported.publicKey, commentFor(label))   // comment matches the chosen label
         // The key comes back unlocked, so there is no passphrase to keep: what the user typed
         // was needed to open it and is dropped here with the rest of this call's locals.
-        val encEnabled = prefs.keystoreEncryption.first()
-        val entity = withContext(Dispatchers.IO) {
-            if (encEnabled) {
-                SshKeyEntity(
-                    label = label,
-                    keyType = imported.keyType,
-                    privateKeyPem = "",
-                    encryptedBlob = KeystoreManager.encrypt(imported.pem),
-                    publicKey = pubKey,
-                )
-            } else {
-                SshKeyEntity(
-                    label = label,
-                    keyType = imported.keyType,
-                    privateKeyPem = imported.pem,
-                    publicKey = pubKey,
-                )
-            }
-        }
-        dao.upsert(entity)
+        // Hardened: imported keys must also be encrypted, irrespective of legacy preferences.
+        val blob = withContext(Dispatchers.IO) { KeystoreManager.encrypt(imported.pem) }
+        dao.upsert(SshKeyEntity(label = label, keyType = imported.keyType, privateKeyPem = "", encryptedBlob = blob, publicKey = pubKey))
         onDone()
     }
 
