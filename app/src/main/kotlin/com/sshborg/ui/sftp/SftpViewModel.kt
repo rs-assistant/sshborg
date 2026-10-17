@@ -1321,7 +1321,6 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
             keyAuth != null -> keyAuth
             !host.encryptedPassword.isNullOrEmpty() ->
                 runCatching { SshAuth.Password(KeystoreManager.decrypt(host.encryptedPassword)) }.getOrNull()
-            !host.password.isNullOrEmpty() -> SshAuth.Password(host.password)
             else -> null
         }
     }
@@ -1332,8 +1331,6 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
             keyAuth
         } else if (!host.encryptedPassword.isNullOrEmpty()) {
             SshAuth.Password(KeystoreManager.decrypt(host.encryptedPassword))
-        } else if (!host.password.isNullOrEmpty()) {
-            SshAuth.Password(host.password)
         } else {
             _state.value = State.PasswordPrompt(host.hostname)
             val pwd = passwordResult.first()
