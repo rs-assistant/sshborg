@@ -1,0 +1,52 @@
+name: Hardened Android validation
+
+on:
+  push:
+    branches:
+      - security/harden-credential-storage
+  pull_request:
+    branches:
+      - V1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 37
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - name: Verify Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: Run JVM unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: Compile debug APK
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Inspect merged debug manifest
+        run: |
+          python3 - <<'PY'
+          import glob, pathlib, sys
+          paths = glob.glob('app/build/intermediates/merged_manifests/debug/**/AndroidManifest.xml', recursive=True)
+          if not paths:
+              sys.exit('Missing merged debug manifest')
+          from xml.etree import ElementTree as ET
+          ns = '{http://schemas.android.com/apk/res/android}'
+          root = ET.parse(paths[0]).getroot()
+          app = root.find('application')
+          if app is None or app.get(ns + 'allowBackup') != 'false':
+              sys.exit('FAIL: debug Android backup is not disabled')
+          print('PASS: debug allowBackup=false')
+          PY
