@@ -8,6 +8,7 @@ import com.sshborg.SshBorgApp
 import com.sshborg.data.db.HostEntity
 import com.sshborg.data.ExtraBar
 import com.sshborg.data.ExtraBarPresets
+import com.sshborg.data.ConnectionAuthorization
 import com.sshborg.data.KeystoreManager
 import com.sshborg.data.ssh.*
 import com.sshborg.service.SessionManager
@@ -218,6 +219,11 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
             val host = hostDao.getById(hostId) ?: run {
                 _state.value = ConnectionState.Error(getApplication<Application>().getString(R.string.error_host_not_found)); return@launch
             }
+            // Authorize BEFORE reading or decrypting saved credentials.
+            if (!ConnectionAuthorization.requireFreshAuthentication()) {
+                _state.value = ConnectionState.Error("SSH connection authorization was cancelled or unavailable")
+                return@launch
+            }
             var auth = buildAuth(host) ?: return@launch
             var wrongPassword = false
 
@@ -226,7 +232,14 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                 buildJumpHostEntities(host.jumpHostIdList)
             } else emptyList()
 
+            var firstAttempt = true
             while (true) {
+                // Password retry is a NEW SSH transport; require fresh authorization.
+                if (!firstAttempt && !ConnectionAuthorization.requireFreshAuthentication()) {
+                    _state.value = ConnectionState.Error("SSH connection authorization was cancelled or unavailable")
+                    return@launch
+                }
+                firstAttempt = false
                 _state.value = ConnectionState.Connecting
 
                 val jumpHosts = if (host.jumpMode == "host_list") {
