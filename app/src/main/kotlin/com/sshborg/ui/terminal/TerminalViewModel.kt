@@ -382,7 +382,8 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
      */
     private suspend fun keyAuthFor(host: HostEntity): SshAuth.PublicKey? {
         val key = host.keyId?.let { keyDao.getById(it) } ?: return null
-        val pem = KeystoreManager.getPrivateKeyPem(key) ?: return null
+        val pem = KeystoreManager.getPrivateKeyPem(key)
+            ?: throw IllegalStateException("Stored SSH key is not encrypted; re-import it before connecting")
         return SshAuth.PublicKey(pem)
     }
 
