@@ -20,7 +20,7 @@ import kotlin.coroutines.resume
  */
 object ConnectionAuthorization {
     private val mutex = Mutex()
-    private var activityRef: WeakReference<FragmentActivity>? = null
+    @Volatile private var activityRef: WeakReference<FragmentActivity>? = null
 
     fun register(activity: FragmentActivity) {
         activityRef = WeakReference(activity)
@@ -45,7 +45,11 @@ object ConnectionAuthorization {
                     androidx.core.content.ContextCompat.getMainExecutor(activity),
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            if (continuation.isActive) continuation.resume(true)
+                            if (continuation.isActive) continuation.resume(
+                                !activity.isFinishing && !activity.isDestroyed &&
+                                    activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                                    activityRef?.get() === activity
+                            )
                         }
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                             if (continuation.isActive) continuation.resume(false)
@@ -53,13 +57,17 @@ object ConnectionAuthorization {
                     }
                 )
                 continuation.invokeOnCancellation { prompt.cancelAuthentication() }
-                prompt.authenticate(
+                try {
+                    prompt.authenticate(
                     BiometricPrompt.PromptInfo.Builder()
                         .setTitle("Authorize SSH / SFTP connection")
                         .setSubtitle("Verify your identity before connecting")
                         .setAllowedAuthenticators(authenticators)
                         .build()
-                )
+                    )
+                } catch (_: RuntimeException) {
+                    if (continuation.isActive) continuation.resume(false)
+                }
             }
         }
     }
