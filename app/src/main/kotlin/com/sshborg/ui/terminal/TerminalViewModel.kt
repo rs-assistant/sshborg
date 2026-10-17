@@ -412,6 +412,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun buildAuth(host: HostEntity): SshAuth? {
+        if (host.keyId != null) return keyAuthFor(host)
         val keyAuth = keyAuthFor(host)
         return if (keyAuth != null) {
             keyAuth
