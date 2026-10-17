@@ -523,7 +523,12 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = State.Error("Unable to unlock SSH credentials", initialAuth.exceptionOrNull()?.message)
                 return@launch
             }
-            var auth = initialAuth.getOrNull() ?: return@launch
+            var auth = initialAuth.getOrNull() ?: run {
+                if (host.keyId != null) {
+                    _state.value = State.Error("Selected SSH key is unavailable or not encrypted; re-import the key")
+                }
+                return@launch
+            }
             var wrongPassword = false
 
             val jumpHostEntities = if (host.jumpMode == "host_list") {
