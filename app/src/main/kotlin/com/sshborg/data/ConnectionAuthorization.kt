@@ -3,6 +3,7 @@ package com.sshborg.data
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,7 +32,7 @@ object ConnectionAuthorization {
 
     suspend fun requireFreshAuthentication(): Boolean = mutex.withLock {
         withContext(Dispatchers.Main.immediate) {
-            val activity = activityRef?.get()?.takeUnless { it.isFinishing || it.isDestroyed }
+            val activity = activityRef?.get()?.takeUnless { it.isFinishing || it.isDestroyed || !it.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
                 ?: return@withContext false
             val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
