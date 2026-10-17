@@ -518,7 +518,12 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = State.Error("SFTP connection authorization was cancelled or unavailable")
                 return@launch
             }
-            var auth = buildAuth(host) ?: return@launch
+            val initialAuth = runCatching { buildAuth(host) }
+            if (initialAuth.isFailure) {
+                _state.value = State.Error("Unable to unlock SSH credentials", initialAuth.exceptionOrNull()?.message)
+                return@launch
+            }
+            var auth = initialAuth.getOrNull() ?: return@launch
             var wrongPassword = false
 
             val jumpHostEntities = if (host.jumpMode == "host_list") {
@@ -537,7 +542,12 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
 
                 val jumpHosts = if (host.jumpMode == "host_list") {
                     jumpHostEntities.mapNotNull { jumpHost ->
-                        val jumpAuth = buildJumpAuth(jumpHost) ?: run {
+                        val jumpResult = runCatching { buildJumpAuth(jumpHost) }
+                        if (jumpResult.isFailure) {
+                            _state.value = State.Error("Unable to unlock jump host credentials", jumpResult.exceptionOrNull()?.message)
+                            return@launch
+                        }
+                        val jumpAuth = jumpResult.getOrNull() ?: run {
                             _state.value = State.Error("Jump host credentials unavailable")
                             return@launch
                         }
