@@ -36,7 +36,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["allowBackup"] = "true"
+            manifestPlaceholders["allowBackup"] = "false"
             manifestPlaceholders["appLabel"] = "SSHBorgDebug"
         }
         release {
