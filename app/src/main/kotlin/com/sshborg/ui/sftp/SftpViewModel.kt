@@ -12,6 +12,7 @@ import com.sshborg.R
 import androidx.lifecycle.viewModelScope
 import com.sshborg.SshBorgApp
 import com.sshborg.data.db.HostEntity
+import com.sshborg.data.ConnectionAuthorization
 import com.sshborg.data.KeystoreManager
 import com.sshborg.data.ssh.*
 import android.webkit.MimeTypeMap
@@ -512,6 +513,11 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = State.Error(getApplication<Application>().getString(R.string.error_host_not_found)); return@launch
             }
             _showHidden.value = host.sftpShowHidden
+            // Authorize BEFORE reading or decrypting saved credentials.
+            if (!ConnectionAuthorization.requireFreshAuthentication()) {
+                _state.value = State.Error("SFTP connection authorization was cancelled or unavailable")
+                return@launch
+            }
             var auth = buildAuth(host) ?: return@launch
             var wrongPassword = false
 
@@ -519,7 +525,14 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                 buildJumpHostEntities(host.jumpHostIdList)
             } else emptyList()
 
+            var firstAttempt = true
             while (true) {
+                // Password retry is a NEW SSH transport; require fresh authorization.
+                if (!firstAttempt && !ConnectionAuthorization.requireFreshAuthentication()) {
+                    _state.value = State.Error("SFTP connection authorization was cancelled or unavailable")
+                    return@launch
+                }
+                firstAttempt = false
                 _state.value = State.Connecting
 
                 val jumpHosts = if (host.jumpMode == "host_list") {
