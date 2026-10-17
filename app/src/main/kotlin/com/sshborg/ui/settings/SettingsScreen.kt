@@ -697,13 +697,8 @@ fun SettingsScreen(
                     if (isMigrating) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     } else {
-                        Switch(
-                            checked = keystoreEncryption,
-                            onCheckedChange = { enabled ->
-                                if (enabled) showEnableEncryptionDialog = true
-                                else vm.disableKeystoreEncryption()
-                            },
-                        )
+                        // Hardened: encryption cannot be disabled in settings.
+                        Text("Required", style = MaterialTheme.typography.labelMedium)
                     }
                 },
             )
