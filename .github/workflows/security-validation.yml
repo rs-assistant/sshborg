@@ -31,6 +31,27 @@ jobs:
         run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
       - name: Verify Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+      - name: Static credential policy checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('app/src/main/kotlin/com/sshborg')
+          key_vm = (root/'ui/keys/KeysViewModel.kt').read_text()
+          host_vm = (root/'ui/hosts/AddEditHostViewModel.kt').read_text()
+          store = (root/'data/KeystoreManager.kt').read_text()
+          settings = (root/'ui/settings/SettingsViewModel.kt').read_text()
+          terminal = (root/'ui/terminal/TerminalViewModel.kt').read_text()
+          sftp = (root/'ui/sftp/SftpViewModel.kt').read_text()
+          assert 'privateKeyPem = priv' not in key_vm
+          assert 'privateKeyPem = imported.pem' not in key_vm
+          assert 'else -> rawPassword to null' not in host_vm
+          assert 'entity.privateKeyPem.isNotBlank() -> entity.privateKeyPem' not in store
+          assert 'fun disableKeystoreEncryption()' not in settings
+          for vm in (terminal, sftp):
+              assert 'ConnectionAuthorization.requireFreshAuthentication()' in vm
+              assert 'SshAuth.Password(host.password)' not in vm
+          print('PASS: static credential policy checks')
+          PY
       - name: Run JVM unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
       - name: Compile debug APK
