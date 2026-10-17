@@ -30,7 +30,9 @@ jobs:
         with:
           packages: 'platform-tools'
       - name: Install Android API 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          sdkmanager --list --channel=3 | grep -E "platforms;android-37|build-tools;37" || true
+          sdkmanager --channel=3 "platforms;android-37" "build-tools;37.0.0"
       - name: Verify Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
       - name: Static credential policy checks
