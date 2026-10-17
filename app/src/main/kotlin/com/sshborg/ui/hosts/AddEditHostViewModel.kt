@@ -130,12 +130,11 @@ class AddEditHostViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(onDone: () -> Unit) = viewModelScope.launch {
         val rawPassword = if (!useKey.value) password.value.takeIf { it.isNotEmpty() } else null
-        val encEnabled = prefs.keystoreEncryption.first()
-
-        val (plainPwd, encryptedPwd) = when {
-            rawPassword == null -> null to null
-            encEnabled -> null to withContext(Dispatchers.IO) { KeystoreManager.encrypt(rawPassword) }
-            else -> rawPassword to null
+        // Hardened: never store newly saved host passwords in plaintext.
+        val (plainPwd, encryptedPwd) = if (rawPassword == null) {
+            null to null
+        } else {
+            null to withContext(Dispatchers.IO) { KeystoreManager.encrypt(rawPassword) }
         }
 
         val currentMode = jumpMode.value
