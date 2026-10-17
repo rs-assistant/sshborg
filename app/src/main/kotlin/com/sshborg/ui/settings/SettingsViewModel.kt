@@ -419,27 +419,5 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Decrypts all SSH keys and host passwords back to plain-text and removes the Keystore key. */
-    fun disableKeystoreEncryption() {
-        _isMigrating.value = true
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                keyDao.getAllOnce().forEach { key ->
-                    if (key.encryptedBlob != null) {
-                        val pem = KeystoreManager.decrypt(key.encryptedBlob)
-                        keyDao.upsert(key.copy(privateKeyPem = pem, encryptedBlob = null))
-                    }
-                }
-                hostDao.getAllOnce().forEach { host ->
-                    if (host.encryptedPassword != null) {
-                        val pwd = KeystoreManager.decrypt(host.encryptedPassword)
-                        hostDao.upsert(host.copy(password = pwd, encryptedPassword = null))
-                    }
-                }
-                KeystoreManager.deleteKey()
-                prefs.setKeystoreEncryption(false)
-            }.onFailure { _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_decryption_failed)) }
-            _isMigrating.value = false
-        }
-    }
+
 }
