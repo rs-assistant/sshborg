@@ -244,7 +244,10 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
 
                 val jumpHosts = if (host.jumpMode == "host_list") {
                     jumpHostEntities.mapNotNull { jumpHost ->
-                        val jumpAuth = buildJumpAuth(jumpHost) ?: return@mapNotNull null
+                        val jumpAuth = buildJumpAuth(jumpHost) ?: run {
+                            _state.value = ConnectionState.Error("Jump host credentials unavailable")
+                            return@launch
+                        }
                         JumpHost(
                             host             = jumpHost.hostname,
                             port             = jumpHost.port,
@@ -402,6 +405,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Non-interactive auth for jump hosts — password must already be saved. */
     private suspend fun buildJumpAuth(host: HostEntity): SshAuth? {
+        if (host.keyId != null) return keyAuthFor(host)
         val keyAuth = keyAuthFor(host)
         return when {
             keyAuth != null -> keyAuth
