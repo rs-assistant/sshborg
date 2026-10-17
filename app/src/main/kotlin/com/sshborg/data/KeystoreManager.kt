@@ -87,10 +87,9 @@ object KeystoreManager {
      */
     fun getPrivateKeyPem(entity: SshKeyEntity): String? {
         val blob = entity.encryptedBlob
-        return when {
-            blob != null -> runCatching { decrypt(blob) }.getOrNull()
-            entity.privateKeyPem.isNotBlank() -> entity.privateKeyPem
-            else -> null
-        }
+        // Hardened: legacy plaintext keys must be re-imported or migrated explicitly.
+        // Never silently use unencrypted private-key material.
+        if (blob == null) return null
+        return decrypt(blob)
     }
 }
