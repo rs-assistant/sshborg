@@ -75,10 +75,14 @@ jobs:
               sys.exit('FAIL: debug Android backup is not disabled')
           print('PASS: debug allowBackup=false')
           PY
-      - name: Upload unsigned debug test APK
+      - name: Record debug APK SHA-256
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk | tee app/build/outputs/apk/debug/SHA256SUMS
+      - name: Upload signed debug test APK
         uses: actions/upload-artifact@v4
         with:
           name: sshborg-hardened-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
