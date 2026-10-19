@@ -4,7 +4,6 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
-import android.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -66,15 +65,10 @@ internal object KeystoreV2 {
         val iv = cipher.iv
         require(iv.size == 12) { "Invalid AES-GCM IV" }
         val encrypted = cipher.doFinal(plaintext)
-        return "v2:" + Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
+        return CredentialBlobV2.encode(iv, encrypted)
     }
 
-    fun parseEncrypted(blob: String): Pair<ByteArray, ByteArray> {
-        require(blob.startsWith("v2:")) { "Unsupported credential format" }
-        val raw = Base64.decode(blob.removePrefix("v2:"), Base64.NO_WRAP)
-        require(raw.size >= 12 + 16) { "Invalid AES-GCM blob" }
-        return raw.copyOfRange(0, 12) to raw.copyOfRange(12, raw.size)
-    }
+    fun parseEncrypted(blob: String): Pair<ByteArray, ByteArray> = CredentialBlobV2.decode(blob)
 
     /** Only pass the Cipher returned by a successful CryptoObject authentication. */
     fun openAuthenticated(cipher: Cipher, ciphertext: ByteArray): ByteArray {
