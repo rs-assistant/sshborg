@@ -4,6 +4,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -40,6 +41,13 @@ object ConnectionAuthorization {
                 BiometricManager.BIOMETRIC_SUCCESS) return@withContext false
 
             suspendCancellableCoroutine { continuation ->
+                val lifecycleObserver = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                        if (continuation.isActive) continuation.resume(false)
+                    }
+                }
+                activity.lifecycle.addObserver(lifecycleObserver)
+                continuation.invokeOnCompletion { activity.lifecycle.removeObserver(lifecycleObserver) }
                 val prompt = BiometricPrompt(
                     activity,
                     androidx.core.content.ContextCompat.getMainExecutor(activity),
@@ -56,7 +64,7 @@ object ConnectionAuthorization {
                         }
                     }
                 )
-                continuation.invokeOnCancellation { prompt.cancelAuthentication() }
+                continuation.invokeOnCompletion { prompt.cancelAuthentication() }
                 try {
                     prompt.authenticate(
                     BiometricPrompt.PromptInfo.Builder()
