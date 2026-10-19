@@ -47,12 +47,13 @@ object ConnectionAuthorization {
                     }
                 }
                 activity.lifecycle.addObserver(lifecycleObserver)
-                continuation.invokeOnCompletion { activity.lifecycle.removeObserver(lifecycleObserver) }
+                // Cleanup is handled by the cancellation handler and prompt callbacks.
                 val prompt = BiometricPrompt(
                     activity,
                     androidx.core.content.ContextCompat.getMainExecutor(activity),
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            activity.lifecycle.removeObserver(lifecycleObserver)
                             if (continuation.isActive) continuation.resume(
                                 !activity.isFinishing && !activity.isDestroyed &&
                                     activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
@@ -60,11 +61,15 @@ object ConnectionAuthorization {
                             )
                         }
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            activity.lifecycle.removeObserver(lifecycleObserver)
                             if (continuation.isActive) continuation.resume(false)
                         }
                     }
                 )
-                continuation.invokeOnCompletion { prompt.cancelAuthentication() }
+                continuation.invokeOnCancellation {
+                    activity.lifecycle.removeObserver(lifecycleObserver)
+                    prompt.cancelAuthentication()
+                }
                 try {
                     prompt.authenticate(
                     BiometricPrompt.PromptInfo.Builder()
@@ -74,6 +79,7 @@ object ConnectionAuthorization {
                         .build()
                     )
                 } catch (_: RuntimeException) {
+                    activity.lifecycle.removeObserver(lifecycleObserver)
                     if (continuation.isActive) continuation.resume(false)
                 }
             }
