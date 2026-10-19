@@ -75,7 +75,8 @@ object KeystoreManager {
         val iv         = raw.copyOfRange(0, GCM_IV_LEN)
         val ciphertext = raw.copyOfRange(GCM_IV_LEN, raw.size)
         val key        = KeyStore.getInstance(KEYSTORE).also { it.load(null) }
-            .getKey(KEY_ALIAS, null) as SecretKey
+            .getKey(KEY_ALIAS, null) as? SecretKey
+            ?: throw IllegalStateException("Keystore encryption key is unavailable; restore or re-import credentials")
         val cipher = Cipher.getInstance(ALGORITHM)
         cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
         return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
