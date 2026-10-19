@@ -48,8 +48,11 @@ internal object KeystoreV2 {
             .apply { init(builder.build()) }.generateKey()
     }
 
+    fun hasKey(): Boolean = KeyStore.getInstance(STORE).apply { load(null) }.containsAlias(ALIAS)
+
     /** Must be passed as BiometricPrompt.CryptoObject; do not call doFinal before auth. */
     fun prepareDecrypt(iv: ByteArray): Cipher {
+        require(hasKey()) { "Authenticated credential key is missing; re-import required" }
         require(iv.size == 12) { "Invalid AES-GCM IV" }
         return Cipher.getInstance(TRANSFORMATION).apply {
             init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, iv))
