@@ -4,6 +4,7 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
+import android.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -54,6 +55,32 @@ internal object KeystoreV2 {
         return Cipher.getInstance(TRANSFORMATION).apply {
             init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, iv))
         }
+    }
+
+    /**
+     * Explicit versioned wire format. The caller must pass the authenticated Cipher
+     * returned by BiometricPrompt; a freshly prepared Cipher is not authorized.
+     */
+    fun sealAuthenticated(cipher: Cipher, plaintext: ByteArray): String {
+        require(cipher.algorithm == TRANSFORMATION) { "Unexpected cipher algorithm" }
+        val iv = cipher.iv
+        require(iv.size == 12) { "Invalid AES-GCM IV" }
+        val encrypted = cipher.doFinal(plaintext)
+        return "v2:" + Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
+    }
+
+    fun parseEncrypted(blob: String): Pair<ByteArray, ByteArray> {
+        require(blob.startsWith("v2:")) { "Unsupported credential format" }
+        val raw = Base64.decode(blob.removePrefix("v2:"), Base64.NO_WRAP)
+        require(raw.size >= 12 + 16) { "Invalid AES-GCM blob" }
+        return raw.copyOfRange(0, 12) to raw.copyOfRange(12, raw.size)
+    }
+
+    /** Only pass the Cipher returned by a successful CryptoObject authentication. */
+    fun openAuthenticated(cipher: Cipher, ciphertext: ByteArray): ByteArray {
+        require(cipher.algorithm == TRANSFORMATION) { "Unexpected cipher algorithm" }
+        require(ciphertext.size >= 16) { "Invalid AES-GCM ciphertext" }
+        return cipher.doFinal(ciphertext)
     }
 
     /** Encryption also requires a fresh authorized Cipher for this key. */
