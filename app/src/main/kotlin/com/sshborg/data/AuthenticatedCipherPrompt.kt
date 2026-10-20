@@ -5,10 +5,10 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.lang.ref.WeakReference
 import javax.crypto.Cipher
 import kotlin.coroutines.resume
 
@@ -30,6 +30,12 @@ internal object AuthenticatedCipherPrompt {
                 BiometricManager.BIOMETRIC_SUCCESS) return@withContext null
 
             suspendCancellableCoroutine { continuation ->
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                }
+                activity.lifecycle.addObserver(observer)
                 val prompt = BiometricPrompt(
                     activity,
                     androidx.core.content.ContextCompat.getMainExecutor(activity),
@@ -38,14 +44,19 @@ internal object AuthenticatedCipherPrompt {
                             val verified = result.cryptoObject?.cipher
                             val allowed = !activity.isFinishing && !activity.isDestroyed &&
                                 activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                            activity.lifecycle.removeObserver(observer)
                             if (continuation.isActive) continuation.resume(if (allowed && verified === cipher) verified else null)
                         }
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            activity.lifecycle.removeObserver(observer)
                             if (continuation.isActive) continuation.resume(null)
                         }
                     }
                 )
-                continuation.invokeOnCancellation { prompt.cancelAuthentication() }
+                continuation.invokeOnCancellation {
+                    activity.lifecycle.removeObserver(observer)
+                    prompt.cancelAuthentication()
+                }
                 try {
                     prompt.authenticate(
                         BiometricPrompt.PromptInfo.Builder()
@@ -55,6 +66,7 @@ internal object AuthenticatedCipherPrompt {
                         BiometricPrompt.CryptoObject(cipher)
                     )
                 } catch (_: RuntimeException) {
+                    activity.lifecycle.removeObserver(observer)
                     if (continuation.isActive) continuation.resume(null)
                 }
             }
