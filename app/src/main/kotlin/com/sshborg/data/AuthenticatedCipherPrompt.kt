@@ -32,6 +32,7 @@ internal object AuthenticatedCipherPrompt {
             suspendCancellableCoroutine { continuation ->
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                        activity.lifecycle.removeObserver(this)
                         if (continuation.isActive) continuation.resume(null)
                     }
                 }
