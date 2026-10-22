@@ -90,6 +90,64 @@ class SftpIntegrationTest {
         assertFalse("a changed pin must not be presented as a new host", asked)
     }
 
+    @Test fun `blank target pins prevent SFTP connections before any jump is contacted`() {
+        val s = configured!!
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        for (pin in listOf("", " ", "\t\r\n")) {
+            for (jumps in listOf(emptyList(), listOf(JumpHost(s.host, s.port, s.user, null, auth)))) {
+                val params = SshConnectionParams(
+                    hostname = s.host, port = s.port, username = s.user, auth = auth,
+                    knownHostsEntry = pin, jumpHosts = jumps,
+                )
+                var asked = false
+                assertThrows(IllegalArgumentException::class.java) {
+                    runBlocking { SshManager.openSftp(params) { _, _, _ -> asked = true; true } }.disconnect()
+                }
+                assertFalse("an invalid target pin must fail before even a jump asks for trust", asked)
+            }
+        }
+    }
+
+    @Test fun `blank jump pins prevent SFTP connections before any earlier jump is contacted`() {
+        val s = configured!!
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        for (pin in listOf("", " ", "\t\r\n")) {
+            val invalidJump = JumpHost(s.host, s.port, s.user, pin, auth)
+            val firstUseJump = JumpHost(s.host, s.port, s.user, null, auth)
+            for (jumps in listOf(listOf(invalidJump), listOf(firstUseJump, invalidJump))) {
+                val params = SshConnectionParams(
+                    hostname = s.host, port = s.port, username = s.user, auth = auth,
+                    knownHostsEntry = sftp().hostKeyLine, jumpHosts = jumps,
+                )
+                var asked = false
+                assertThrows(IllegalArgumentException::class.java) {
+                    runBlocking { SshManager.openSftp(params) { _, _, _ -> asked = true; true } }.disconnect()
+                }
+                assertFalse("every jump pin must be validated before the chain asks for trust", asked)
+            }
+        }
+    }
+
+    @Test fun `malformed nonblank target and jump pins cannot become SFTP first use trust`() {
+        val s = configured!!
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        val target = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user, auth = auth,
+            knownHostsEntry = "not-a-known-hosts-entry",
+        )
+        val jump = target.copy(
+            knownHostsEntry = sftp().hostKeyLine,
+            jumpHosts = listOf(JumpHost(s.host, s.port, s.user, "not-a-known-hosts-entry", auth)),
+        )
+        for (params in listOf(target, jump)) {
+            var asked = false
+            assertThrows(JSchException::class.java) {
+                runBlocking { SshManager.openSftp(params) { _, _, _ -> asked = true; true } }.disconnect()
+            }
+            assertFalse("a malformed pin must not be presented as a new host", asked)
+        }
+    }
+
     @Test fun `a file bigger than the caller will hold is refused, not truncated`() {
         val path = "$scratch/too-big"
         sftp().writeFile(path, ByteArray(2048))

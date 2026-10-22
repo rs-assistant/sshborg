@@ -46,7 +46,7 @@ data class JumpHost(
     val port: Int,
     /** If null, the target host's username is used for this hop. */
     val username: String?,
-    /** Known-hosts line for this jump host — null on first connect, non-null on subsequent connects. */
+    /** Saved known-hosts line; null requests first-use trust, blank is invalid. */
     val knownHostsEntry: String?,
     /**
      * Explicit auth for this hop. If null, the target host's auth is used (simple-mode behaviour).
@@ -67,7 +67,7 @@ data class SshConnectionParams(
     val username: String,
     val auth: SshAuth,
     val agentForwarding: Boolean = false,
-    /** If null, fingerprint verification is skipped (only on first connect) */
+    /** Saved known-hosts line; null requests first-use trust, blank is invalid. */
     val knownHostsEntry: String? = null,
     /** Ordered list of SSH jump hosts to tunnel through before reaching the target. */
     val jumpHosts: List<JumpHost> = emptyList(),

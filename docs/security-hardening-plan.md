@@ -99,10 +99,12 @@ A local attacker with an unlocked phone or an application bypass must not initia
   Host-editor saves reject a password changed since loading, inside a Room transaction. Backup
   import preserves current credentials in a transaction so it cannot restore a stale v1 blob
   over a concurrently migrated record. These updates do not change the Room schema version.
-- Target and jump-host connections enforce saved host-key pins with strict checking. A changed
-  pin cannot be accepted through the first-use trust prompt. Loopback SSH/SFTP integration
-  tests reproduce the former target-pin bypass and verify refusal after the fix, along with
-  successful pinned reconnection and refusal when first-use trust is declined.
+- Target and jump-host connections enforce saved host-key pins with strict checking. Only a
+  null pin requests first-use trust; non-null empty/whitespace pins on the target or any hop
+  are rejected before opening any transport. Changed or malformed nonblank pins cannot be
+  accepted through the first-use trust prompt. Loopback SSH/SFTP integration tests cover
+  these refusals, including a blank pin after an earlier first-use hop, along with successful
+  pinned reconnection and refusal when first-use trust is declined.
 - JVM regression tests exercise credential selection, decryption errors, cancellation, and
   complete jump-chain resolution without requiring a server or device. These tests use injected
   decryption/lookup functions; they do not validate Android Keystore or biometric hardware.
