@@ -220,6 +220,12 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
             val host = hostDao.getById(hostId) ?: run {
                 _state.value = ConnectionState.Error(getApplication<Application>().getString(R.string.error_host_not_found)); return@launch
             }
+            val simpleJumpHosts = try {
+                if (host.jumpMode == "host_list") emptyList() else parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+            } catch (e: IllegalArgumentException) {
+                _state.value = ConnectionState.Error("Invalid jump host chain", e.message)
+                return@launch
+            }
             // Authorize BEFORE reading or decrypting saved credentials.
             var attemptGrant = ConnectionAuthorization.requireFreshAttempt()
             if (attemptGrant == null) {
@@ -285,7 +291,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 } else {
-                    parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+                    simpleJumpHosts
                 }
 
                 val result = runCatching {
@@ -340,6 +346,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
 
+                result.onFailure { if (it is CancellationException) throw it }
                 val session = result.getOrNull()
                 if (session != null) {
                     shellSession = session

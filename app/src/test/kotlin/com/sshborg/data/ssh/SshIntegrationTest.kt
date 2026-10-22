@@ -3,7 +3,13 @@ package com.sshborg.data.ssh
 import com.jcraft.jsch.JSchException
 import com.sshborg.TestConfig
 import java.security.Security
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -131,6 +137,30 @@ class SshIntegrationTest {
         }
     }
 
+    @Test fun `a parsed simple jump chain reconnects with its saved pin without asking for trust`() {
+        val s = server()
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        val first = connect(auth, throughItself = true)
+        val (targetPin, jumpPin) = try {
+            first.hostKeyLine to first.newJumpHostKeyLines.single()
+        } finally {
+            first.disconnect()
+        }
+        val params = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user, auth = auth,
+            knownHostsEntry = targetPin,
+            jumpHosts = parseJumpHosts("${s.user}@${s.host}:${s.port}", jumpPin.replace(' ', '\t')),
+        )
+        var asked = false
+        val second = runBlocking { SshManager.openShell(params) { _, _, _ -> asked = true; false } }
+        try {
+            second.assertAlive()
+        } finally {
+            second.disconnect()
+        }
+        assertFalse("the parser must retain the saved jump pin", asked)
+    }
+
     /** A host key we hand back has to be accepted next time without asking the user again. */
     @Test fun `the known hosts line it produces is good enough for the next connect`() {
         val s = server()
@@ -192,6 +222,42 @@ class SshIntegrationTest {
             runBlocking { SshManager.openShell(params) { _, _, _ -> asked = true; false } }.disconnect()
         }
         assertTrue("first use must ask for explicit trust", asked)
+    }
+
+    @Test fun `cancelling while host trust is pending propagates and permits a fresh attempt`() = runBlocking {
+        val s = server()
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        val params = SshConnectionParams(hostname = s.host, port = s.port, username = s.user, auth = auth)
+        val trustRequested = CompletableDeferred<Unit>()
+        val releaseTrust = CountDownLatch(1)
+        val attempt = async {
+            SshManager.openShell(params) { _, _, _ ->
+                trustRequested.complete(Unit)
+                releaseTrust.await(5, TimeUnit.SECONDS)
+            }.disconnect()
+        }
+        try {
+            withTimeout(5_000) { trustRequested.await() }
+            val cancellation = CancellationException("disposable test cancellation")
+            attempt.cancel(cancellation)
+            try {
+                withTimeout(5_000) { attempt.await() }
+                fail("A cancelled connection must not return success")
+            } catch (e: CancellationException) {
+                // Coroutine stack-trace recovery may copy the exception and retain it as cause.
+                assertTrue("Propagate caller cancellation, not an auth failure or timeout",
+                    generateSequence<Throwable>(e) { it.cause }.any { it === cancellation })
+            }
+        } finally {
+            releaseTrust.countDown()
+            attempt.cancel()
+        }
+        val fresh = connect(auth)
+        try {
+            fresh.assertAlive()
+        } finally {
+            fresh.disconnect()
+        }
     }
 
     private fun mismatchedPin(): String {

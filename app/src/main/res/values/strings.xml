@@ -152,6 +152,7 @@
     <string name="keys_needs_passphrase">Passphrase missing — import this key again</string>
     <string name="keys_reimport_required">This key must be imported again before use</string>
     <string name="host_jump_selection_invalid">Select or remove every jump host before saving.</string>
+    <string name="host_jump_chain_invalid">Enter every jump host as [user@]host[:port], using brackets for IPv6, or leave the chain empty.</string>
     <string name="keys_save_failed">Could not encrypt or save the key securely. Please try again.</string>
     <string name="keys_generate_failed">Could not generate the key. Check the options and try again.</string>
     <string name="credential_migration_title">Protected credentials</string>

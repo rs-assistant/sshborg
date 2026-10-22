@@ -11,6 +11,7 @@ import com.sshborg.data.ProtectedCredentials
 import com.sshborg.data.db.GroupEntity
 import com.sshborg.data.db.HostEntity
 import com.sshborg.data.db.SshKeyEntity
+import com.sshborg.data.ssh.parseJumpHosts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -194,6 +195,15 @@ class AddEditHostViewModel(app: Application) : AndroidViewModel(app) {
             _saveError.value = R.string.host_jump_selection_invalid
             return@launch
         }
+        val newJumpHosts = if (currentMode == "simple") {
+            jumpHosts.value.trim().takeIf { it.isNotEmpty() }
+        } else null
+        try {
+            parseJumpHosts(newJumpHosts, null)
+        } catch (_: IllegalArgumentException) {
+            _saveError.value = R.string.host_jump_chain_invalid
+            return@launch
+        }
         val keyIdForSave = if (useKeyForSave) selectedKeyId.value else null
         if (useKeyForSave && keyIdForSave == null) {
             _saveError.value = R.string.host_key_required
@@ -213,10 +223,6 @@ class AddEditHostViewModel(app: Application) : AndroidViewModel(app) {
             val newJumpHostIdList = if (currentMode == "host_list") {
                 encodeJumpHostSelection(jumpSelection)
             } else null
-            val newJumpHosts = if (currentMode == "simple") {
-                jumpHosts.value.trim().takeIf { it.isNotEmpty() }
-            } else null
-
             val existing = editingId?.let { checkNotNull(hostDao.getById(it)) { "Host no longer exists" } }
             val newHostname = hostname.value.trim()
             val newPort = port.value.toIntOrNull() ?: 22

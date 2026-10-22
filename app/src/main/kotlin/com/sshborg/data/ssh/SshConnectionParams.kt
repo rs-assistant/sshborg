@@ -86,7 +86,8 @@ sealed interface SshAuth {
  * Parses a jump-hosts string ("user@host1:22,host2:port") and a newline-delimited known_hosts
  * blob into a list of [JumpHost].
  *
- * Each token format: [user@]host[:port]  — user and port are optional.
+ * Each token format: [user@]host[:port] — bracket IPv6 addresses, e.g. [::1]:2222.
+ * An invalid/empty hop rejects the entire chain; it must never become a shorter/direct route.
  */
 fun parseJumpHosts(raw: String?, knownKeysBlob: String?): List<JumpHost> {
     if (raw.isNullOrBlank()) return emptyList()
@@ -97,7 +98,7 @@ fun parseJumpHosts(raw: String?, knownKeysBlob: String?): List<JumpHost> {
         ?.lines()
         ?.filter { it.isNotBlank() }
         ?.mapNotNull { line ->
-            val marker = line.substringBefore(" ")
+            val marker = line.trim().split(Regex("\\s+"), limit = 2).first()
             val canonical = if (marker.startsWith("[")) {
                 // [host]:port format
                 val h = marker.substringAfter("[").substringBefore("]")
@@ -111,39 +112,45 @@ fun parseJumpHosts(raw: String?, knownKeysBlob: String?): List<JumpHost> {
         }
         ?.toMap()
         ?: emptyMap()
-    return raw.split(",").mapNotNull { token ->
+    return raw.split(",").map { token ->
         val trimmed = token.trim()
-        if (trimmed.isEmpty()) return@mapNotNull null
+        require(trimmed.isNotEmpty()) { "Empty jump host; edit the jump host chain" }
+        require(trimmed.none { it.isWhitespace() || it.isISOControl() }) { "Invalid jump host" }
 
         // Split off optional username: user@host:port
         val atIdx = trimmed.indexOf('@')
         val username: String?
         val hostPort: String
         if (atIdx != -1) {
-            username = trimmed.substring(0, atIdx).takeIf { it.isNotEmpty() }
+            username = trimmed.substring(0, atIdx)
+            require(username.isNotEmpty() && trimmed.lastIndexOf('@') == atIdx) { "Invalid jump host username" }
             hostPort = trimmed.substring(atIdx + 1)
         } else {
             username = null
             hostPort = trimmed
         }
 
-        // Split host:port — only treat the suffix as a port if it's a valid port number,
-        // so that plain hostnames with dots (e.g. server.example.com) are never mangled.
-        val lastColon = hostPort.lastIndexOf(':')
+        // A colon explicitly selects a port, not an alternate hostname on port 22.
+        // Brackets make IPv6 addresses unambiguous and are not passed to JSch as host text.
         val host: String
-        val port: Int
-        if (lastColon == -1) {
-            host = hostPort
-            port = 22
+        val portText: String?
+        if (hostPort.startsWith('[')) {
+            val closing = hostPort.indexOf(']')
+            require(closing > 1) { "Invalid bracketed jump host" }
+            host = hostPort.substring(1, closing)
+            require(':' in host) { "Only IPv6 jump hosts use brackets" }
+            val suffix = hostPort.substring(closing + 1)
+            require(suffix.isEmpty() || suffix.startsWith(':')) { "Invalid jump host port" }
+            portText = if (suffix.isEmpty()) null else suffix.substring(1)
         } else {
-            val possiblePort = hostPort.substring(lastColon + 1).toIntOrNull()
-            if (possiblePort != null && possiblePort in 1..65535) {
-                host = hostPort.substring(0, lastColon)
-                port = possiblePort
-            } else {
-                host = hostPort
-                port = 22
-            }
+            require(hostPort.count { it == ':' } <= 1) { "Bracket IPv6 jump host addresses" }
+            host = hostPort.substringBefore(':')
+            portText = if (':' in hostPort) hostPort.substringAfter(':') else null
+        }
+        require(host.isNotEmpty() && host.none { it in "[]@/\\" }) { "Invalid jump host address" }
+        val port = if (portText == null) 22 else {
+            require(portText.isNotEmpty() && portText.all { it in '0'..'9' }) { "Invalid jump host port" }
+            requireNotNull(portText.toIntOrNull()?.takeIf { it in 1..65535 }) { "Invalid jump host port" }
         }
 
         JumpHost(host, port, username, keysByHost["$host:$port"])

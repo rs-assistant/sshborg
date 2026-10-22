@@ -513,6 +513,12 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
             val host = hostDao.getById(hostId) ?: run {
                 _state.value = State.Error(getApplication<Application>().getString(R.string.error_host_not_found)); return@launch
             }
+            val simpleJumpHosts = try {
+                if (host.jumpMode == "host_list") emptyList() else parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+            } catch (e: IllegalArgumentException) {
+                _state.value = State.Error("Invalid jump host chain", e.message)
+                return@launch
+            }
             _showHidden.value = host.sftpShowHidden
             // Authorize BEFORE reading or decrypting saved credentials.
             var attemptGrant = ConnectionAuthorization.requireFreshAttempt()
@@ -578,7 +584,7 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 } else {
-                    parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+                    simpleJumpHosts
                 }
 
                 val result = runCatching {
@@ -628,6 +634,7 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
 
+                result.onFailure { if (it is CancellationException) throw it }
                 val session = result.getOrNull()
                 if (session != null) {
                     sftpSession = session
