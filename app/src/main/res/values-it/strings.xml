@@ -363,7 +363,7 @@
     <string name="error_encryption_failed">Cifratura fallita</string>
     <string name="error_decryption_failed">Decifratura fallita</string>
     <string name="settings_backup_export_title">Esporta backup</string>
-    <string name="settings_backup_export_subtitle">Salva le configurazioni degli host e le impostazioni dell\'app in un file JSON. Password e chiavi non sono incluse.</string>
+    <string name="settings_backup_export_subtitle">Salva host e impostazioni in JSON formato 8, senza password e chiavi. Ripristina solo con una versione compatibile con il formato 8.</string>
     <string name="settings_backup_export_action">Esporta</string>
     <string name="settings_backup_import_title">Importa backup</string>
     <string name="settings_backup_import_subtitle">Carica le configurazioni degli host e le impostazioni dell\'app da un file JSON. Gli host esistenti con lo stesso nome verranno aggiornati; password e chiavi non verranno importate.</string>

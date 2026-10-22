@@ -1,5 +1,6 @@
 package com.sshborg.data
 
+import com.sshborg.R
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
@@ -69,7 +70,7 @@ internal object AuthenticatedCipherPrompt {
                     if (!continuation.isActive) return@suspendCancellableCoroutine
                     createdPrompt.authenticate(
                         BiometricPrompt.PromptInfo.Builder()
-                            .setTitle("Authorize protected SSH credential")
+                            .setTitle(activity.getString(R.string.credential_authorization_title))
                             .setAllowedAuthenticators(authenticators)
                             .build(),
                         BiometricPrompt.CryptoObject(cipher)

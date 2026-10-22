@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_reentry_required">已保存的密码使用旧版明文存储，未被加载。请重新输入，以加密保存。</string>
+    <string name="host_key_required">保存前请选择 SSH 密钥。</string>
+    <string name="host_save_failed">无法保存此主机。编辑器保持打开，可重试。</string>
+    <string name="keys_reimport_required">使用前必须重新导入此密钥</string>
+    <string name="host_jump_selection_invalid">保存前请选择或移除每个跳板主机。</string>
+    <string name="host_jump_chain_invalid">请将每个跳板输入为 [user@]host[:port]，IPv6 地址需加方括号；也可清空整个链。</string>
+    <string name="keys_save_failed">无法安全地加密或保存密钥。请重试。</string>
+    <string name="keys_generate_failed">无法生成密钥。请检查选项后重试。</string>
+    <string name="credential_migration_title">受保护的凭据</string>
+    <string name="credential_auth_required">必需</string>
+    <string name="credential_migration_explanation">需要 Android 11 或更高版本，以及系统强生物识别或设备 PIN／图案／密码认证。每个已保存的凭据都需单独确认，包括跳板主机。下面列出的旧版加密凭据必须显式迁移或重新导入后才能使用。明文或损坏的记录需重新输入或导入。</string>
+    <string name="credential_migration_key">旧版加密 SSH 密钥</string>
+    <string name="credential_migration_password">旧版加密主机密码</string>
+    <string name="credential_migration_action">迁移</string>
+    <string name="credential_migration_confirm_title">迁移 %1$s？</string>
+    <string name="credential_migration_confirm_body">只迁移此凭据。请完成系统认证以读取旧凭据、使用受保护的密钥加密，再次解密验证。需要多次系统确认。只有验证成功且原记录未发生变化时才替换。提交前取消或失败不会改变原记录，不会删除旧 Keystore 密钥。</string>
+    <string name="credential_migration_success">凭据已迁移并验证。</string>
+    <string name="credential_migration_failed">迁移已取消、失败，或凭据已被修改。本次迁移未替换原记录。请刷新后重试；若旧加密密钥不可用，请重新导入。</string>
+    <string name="backup_import_failed">主机导入失败，主机和群组均未更改。请检查重名、缺失的 SSH 密钥或跳板，以及无效数据。含跳板行 ID 的旧备份需在来源设备重新导出。</string>
+    <string name="backup_export_failed">无法导出备份。请检查保存位置、主机和密钥名称是否唯一，以及所有跳板设置。</string>
+    <string name="backup_settings_import_failed">主机已导入（新增 %1$d，更新 %2$d），但未能还原应用设置。请检查设置。</string>
+    <string name="connection_authorization_title">授权 SSH／SFTP 连接</string>
+    <string name="connection_authorization_subtitle">连接前请验证身份</string>
+    <string name="credential_authorization_title">授权访问受保护的 SSH 凭据</string>
+</resources>

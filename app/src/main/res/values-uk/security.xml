@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_reentry_required">Збережений пароль мав старий незашифрований формат і не був завантажений. Введіть його знову, щоб зберегти зашифрованим.</string>
+    <string name="host_key_required">Перед збереженням виберіть SSH-ключ.</string>
+    <string name="host_save_failed">Не вдалося зберегти хост. Редактор залишається відкритим для повторної спроби.</string>
+    <string name="keys_reimport_required">Перед використанням імпортуйте цей ключ повторно</string>
+    <string name="host_jump_selection_invalid">Перед збереженням виберіть або вилучіть кожен проміжний хост.</string>
+    <string name="host_jump_chain_invalid">Введіть кожен проміжний хост як [user@]host[:port], використовуючи квадратні дужки для IPv6, або очистьте весь ланцюжок.</string>
+    <string name="keys_save_failed">Не вдалося безпечно зашифрувати або зберегти ключ. Повторіть спробу.</string>
+    <string name="keys_generate_failed">Не вдалося створити ключ. Перевірте параметри та повторіть спробу.</string>
+    <string name="credential_migration_title">Захищені облікові дані</string>
+    <string name="credential_auth_required">Обов’язково</string>
+    <string name="credential_migration_explanation">Потрібні Android 11 або новіший та системна надійна біометрія чи PIN-код, графічний ключ або пароль пристрою. Кожні збережені облікові дані, зокрема для проміжних хостів, потребують окремого підтвердження. Наведені нижче старі зашифровані дані потрібно явно перенести або імпортувати повторно перед використанням. Незашифровані чи пошкоджені записи потребують повторного введення або імпорту.</string>
+    <string name="credential_migration_key">SSH-ключ у старому зашифрованому форматі</string>
+    <string name="credential_migration_password">Пароль хоста у старому зашифрованому форматі</string>
+    <string name="credential_migration_action">Перенести</string>
+    <string name="credential_migration_confirm_title">Перенести %1$s?</string>
+    <string name="credential_migration_confirm_body">Буде перенесено лише ці облікові дані. Підтвердьте системну автентифікацію, щоб прочитати стару інформацію, зашифрувати захищеним ключем і знову розшифрувати для перевірки. Потрібно кілька підтверджень. Оригінал замінюється лише після перевірки, якщо він не змінився. Скасування чи помилка до фіксації не змінює його. Старі ключі Keystore не видаляються.</string>
+    <string name="credential_migration_success">Облікові дані перенесено та перевірено.</string>
+    <string name="credential_migration_failed">Перенесення скасовано, сталася помилка або запис змінився. Оригінал не замінено цим перенесенням. Оновіть дані й повторіть спробу; якщо старий ключ шифрування недоступний, імпортуйте повторно.</string>
+    <string name="backup_import_failed">Імпорт не виконано; хости й групи не змінено. Перевірте повторювані назви, відсутні SSH-ключі чи проміжні хости та коректність даних. Старі копії з ID рядків проміжних хостів слід експортувати повторно на вихідному пристрої.</string>
+    <string name="backup_export_failed">Не вдалося експортувати копію. Перевірте місце збереження, унікальність назв хостів і ключів та налаштування проміжних хостів.</string>
+    <string name="backup_settings_import_failed">Хости імпортовано (нових: %1$d, оновлено: %2$d), але налаштування застосунку не відновлено. Перевірте налаштування.</string>
+    <string name="connection_authorization_title">Дозволити з’єднання SSH / SFTP</string>
+    <string name="connection_authorization_subtitle">Підтвердьте особу перед підключенням</string>
+    <string name="credential_authorization_title">Дозволити доступ до захищених даних SSH</string>
+</resources>

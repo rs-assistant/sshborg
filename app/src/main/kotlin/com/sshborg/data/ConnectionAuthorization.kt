@@ -1,5 +1,6 @@
 package com.sshborg.data
 
+import com.sshborg.R
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
@@ -128,8 +129,8 @@ object ConnectionAuthorization {
                     if (!continuation.isActive) return@suspendCancellableCoroutine
                     createdPrompt.authenticate(
                         BiometricPrompt.PromptInfo.Builder()
-                            .setTitle("Authorize SSH / SFTP connection")
-                            .setSubtitle("Verify your identity before connecting")
+                            .setTitle(activity.getString(R.string.connection_authorization_title))
+                            .setSubtitle(activity.getString(R.string.connection_authorization_subtitle))
                             .setAllowedAuthenticators(authenticators)
                             .build()
                     )

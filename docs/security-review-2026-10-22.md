@@ -67,7 +67,26 @@ device-test 編譯不是 device-test 執行；本輪不重新打包或發布測�
 
 嚴格的 `ON_STOP` 拒絕規則未變。某些裝置進入系統 PIN 畫面就會停止 host Activity，
 可能因此連正確 PIN 也被拒絕；仍需實機證據，不可用放寬規則來掩蓋。
-本輪新增的 editor 錯誤文案使用預設英文，完整語系翻譯及 TV D-pad 驗收仍待完成。
+第一輪新增的 editor 文案當時只有預設英文；後續語系工作見下節。TV D-pad 驗收仍待完成。
+
+## 後續階段：備份、翻譯與 CI
+
+- 第一階段 `7487938`：上述跳板與取消修正，以及 repo 的 `AGENTS.md`。
+  遠端 push／PR validation 均通過，未發布 APK。
+- 第二階段 `df34177`：備份 host／group 整批 transaction、保留 transaction 內讀到的最新
+  憑證、拒絕缺失／重名 key association，以及 format 8 的名稱式跳板映射。
+  新增 16 個 JVM 案例與 3 個待實機執行的 Room 案例；完整 JVM／transport tests 共 205 個，
+  零 failures／errors／skips，兩個 debug APK 建置成功。相容性限制見 `backup-safety.md`。
+- 第三階段：25 個核心安全資源涵蓋預設英文與九種既有語系，包括系統 prompt 標題、
+  逐筆遷移說明、錯誤提示及 format 8 相容性警告。新增 16 個 Python mutation／resource
+  檢查測試，加上原有 10 個發布測試共 26 個；本機全部通過。
+  靜態檢查移至 `scripts/check_security_policy.py`，在正常與 `python -O` 模式皆有效。
+  完整 fixture runner 現在也要求 auth／migration／backup／jump-chain suites 必須出現。
+
+以上 source guards 是防止已知模式退步的 tripwires，不是語意安全證明；翻譯仍需人工
+校閱與裝置版面／TV 操作驗收。未合併 `V1`、未部署網站，平板測試的舊 prerelease 不變。
+現階段仍待系統 PIN／指紋與生命週期、Room 實機測試，以及動態網路稽核；
+這些需要專用裝置／測試環境的驗收不能以 JVM 或 APK 建置代替。
 
 ## 不需電腦／SSH server 的平板清單
 

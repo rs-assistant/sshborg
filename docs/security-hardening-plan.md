@@ -1,9 +1,11 @@
 # Hardened SSH/SFTP connection authentication — implementation specification
 
-Status: IMPLEMENTED IN WORKTREE; DEVICE ACCEPTANCE REQUIRED. Android 11+ authenticated
+Status: IMPLEMENTED ON TEST BRANCH; DEVICE ACCEPTANCE REQUIRED. Android 11+ authenticated
 Keystore v2 is integrated into new credential writes and SSH/SFTP reads. Existing v1-encrypted
 records require explicit, individually verified migration in Settings. No records are migrated
-on startup. Do not ship this unreleased branch until the remaining device/security checks pass.
+on startup. A test prerelease is available; do not merge or ship a production release until the
+remaining device/security checks pass. See [the 2026-10-22 follow-up review](security-review-2026-10-22.md)
+for subsequent fixes and validation, and [backup safety](backup-safety.md) for format 8 compatibility.
 
 ## Threat model
 A local attacker with an unlocked phone or an application bypass must not initiate a new SSH/SFTP connection without a fresh Android biometric or device-credential confirmation. Authentication of a UI screen is insufficient if ViewModel methods can still connect independently.
@@ -121,7 +123,9 @@ Local validation on 2026-10-20: 179 JVM/transport tests passed, zero failures/er
 `assembleDebug assembleDebugAndroidTest` succeeded. Both APK signatures verified with the
 same debug signer. The merged debug manifest has `allowBackup=false` and minimum API 30.
 Actual DAO conditional-update SQL also passed local SQLite checks (not Android Room execution).
-This is local execution of the CI checks, not a completed remote CI run or device acceptance.
+Those dated results describe local execution, not device acceptance. Later remote CI runs for
+the test prerelease and first follow-up commit succeeded; current validation is recorded in
+the follow-up review and GitHub Actions, not inferred from this historical test total.
 
 On Linux, install JDK 21, the Android SDK packages required by the Gradle project, Python 3.10+,
 OpenSSH `ssh-keygen`, and OpenSSL. Then, from the repository root:
@@ -172,7 +176,8 @@ Device tests added (not executed in this environment):
 
 Build with `./gradlew assembleDebug assembleDebugAndroidTest`, then run selected tests on a
 dedicated configured device using `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sshborg.data.CredentialKeyPolicyTest,com.sshborg.data.db.CredentialUpdateTest`.
-No ADB device or KVM is available here; compiling test APKs is not device acceptance.
+The workflow compiles device tests but does not execute them; compiling APKs is not device acceptance.
+Include `com.sshborg.data.db.HostBackupRoomTest` in dedicated-device validation for the new backup importer.
 
 Before release, use disposable credentials on supported Android devices to verify strong
 biometric and PIN/pattern/password success, refusal/cancellation/lockout, missing keys, enrollment
@@ -183,14 +188,17 @@ rule is intentionally retained, so any device where PIN itself stops the Activit
 fails closed. Do not weaken that rule or mark PIN supported without device-tested handling.
 An application-level dynamic network audit and release acceptance remain outstanding.
 
-Before publishing, update the website's translated security text (which still describes the
-released app's optional encryption policy) and translate the new migration messages. Minimum
-Android badges are already updated for this branch; no website or release has been deployed.
+Before production publishing, align the website's translated security text (which still describes
+the released app's optional encryption policy) with the accepted device behavior. Core migration,
+prompt and backup messages now have translations in the nine existing non-English locales;
+human language/layout and TV acceptance remain required. Minimum Android badges are updated for
+this branch. A test APK was published, but no production release or website deployment was made.
 
 ## Tablet-test prerelease delivery
 
-The user authorized committing these changes to `security/harden-credential-storage` and
-publishing a test APK through GitHub Actions, without merging into `V1`. Run the existing
+An explicitly authorized test APK based on `ee6fbcf173227d8dcfad0d3d59b91f9b41b690c8`
+was published through GitHub Actions, without merging into `V1`. This historical approval is
+not standing permission for another publication. When separately authorized, run the existing
 `Hardened Android validation` workflow manually on that test branch with
 `publish_tablet_test=true`. Its default is false; ordinary push/PR validation cannot publish.
 Only the separate publication job receives `contents: write`, after the build/test job passes.

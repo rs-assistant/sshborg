@@ -157,6 +157,9 @@
     <string name="keys_generate_failed">Could not generate the key. Check the options and try again.</string>
     <string name="credential_migration_title">Protected credentials</string>
     <string name="credential_auth_required">Required</string>
+    <string name="connection_authorization_title">Authorize SSH / SFTP connection</string>
+    <string name="connection_authorization_subtitle">Verify your identity before connecting</string>
+    <string name="credential_authorization_title">Authorize protected SSH credential</string>
     <string name="credential_migration_explanation">Android 11 or later and system strong biometric or device PIN/pattern/password authentication are required. Each saved credential needs its own confirmation, including jump hosts. Old encrypted credentials listed below must be explicitly migrated or re-imported before use. Plaintext or damaged records require re-entry or re-import.</string>
     <string name="credential_migration_key">Old encrypted SSH key</string>
     <string name="credential_migration_password">Old encrypted host password</string>

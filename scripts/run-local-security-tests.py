@@ -166,7 +166,11 @@ async def run_suite(root, offline):
 
 def verify_results():
     counts = {name: 0 for name in ("tests", "failures", "errors", "skipped")}
-    required = {"KeyImportTest", "SshIntegrationTest", "SftpIntegrationTest", "TextFileTest"}
+    required = {
+        "KeyImportTest", "SshIntegrationTest", "SftpIntegrationTest", "TextFileTest",
+        "HostBackupTest", "SimpleJumpHostChainTest", "AuthenticationPromptRequestTest",
+        "ConnectionAttemptGrantTest", "CredentialMigrationTest", "CredentialProtectionTest",
+    }
     for report in (REPO / "app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"):
         suite = ElementTree.parse(report).getroot()
         required.discard(suite.get("name", "").rsplit(".", 1)[-1])

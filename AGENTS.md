@@ -8,6 +8,7 @@
 - SSHBorg 是 Android SSH terminal／SFTP client；主要技術為 Kotlin、Jetpack Compose、
   coroutines、Room、Android Keystore、JSch 與 Bouncy Castle。iOS app 在另一個 repo。
 - 先讀 `README.md`；涉及憑證或連線安全時，再讀 `docs/security-hardening-plan.md`；
+  涉及備份／匯入時，再讀 `docs/backup-safety.md`；
   涉及發布時，再讀 `docs/release-checklist.md` 與 `.github/workflows/security-validation.yml`。
   文件中的歷史狀態、分支名稱或舊設定不一定代表現況，請核對實際程式、git 與 CI。
 - 開工先確認分支與 `git status --short`，保留既有使用者修改。只改本次要求需要的檔案，
@@ -75,12 +76,16 @@ python3 -m venv /tmp/sshborg-security-test-venv
 ./gradlew --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process assembleDebug assembleDebugAndroidTest
 ```
 
-發布腳本的回歸測試，以及所有變更的基本檢查：
+安全規則、翻譯與發布腳本的回歸測試，以及所有變更的基本檢查：
 
 ```sh
-python3 -m unittest discover -s scripts -p 'test_tablet_release.py' -v
+python3 scripts/check_security_policy.py
+python3 -m unittest discover -s scripts -p 'test_*.py' -v
 git diff --check
 ```
+
+靜態規則是快速防退步檢查，不是 Kotlin 語意分析或完整安全證明；不要為了讓它通過而
+加入無作用的字串／註解。合理重構時同步更新檢查與 mutation tests，並保留行為測試。
 
 裝置測試需確認 `adb devices`、使用者授權及目標是可測試裝置；
 `scripts/run-instrumented.sh` 會依本機設定連線與安裝 app，不要未檢查就執行。

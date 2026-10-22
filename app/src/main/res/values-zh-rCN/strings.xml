@@ -395,7 +395,7 @@
     <string name="error_encryption_failed">加密失败</string>
     <string name="error_decryption_failed">解密失败</string>
     <string name="settings_backup_export_title">导出备份</string>
-    <string name="settings_backup_export_subtitle">将主机配置和应用设置保存到 JSON 文件。不包含密码和密钥。</string>
+    <string name="settings_backup_export_subtitle">将主机和应用设置保存为格式 8 的 JSON，不含密码和密钥。只能使用支持格式 8 的版本还原。</string>
     <string name="settings_backup_export_action">导出</string>
     <string name="settings_backup_import_title">导入备份</string>
     <string name="settings_backup_import_subtitle">从 JSON 文件加载主机配置和应用设置。同名的现有主机将被更新；密码和密钥不会被导入。</string>

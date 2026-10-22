@@ -364,7 +364,7 @@
     <string name="error_encryption_failed">Помилка шифрування</string>
     <string name="error_decryption_failed">Помилка розшифрування</string>
     <string name="settings_backup_export_title">Експортувати резервну копію</string>
-    <string name="settings_backup_export_subtitle">Зберегти конфігурації хостів і налаштування застосунку у файл JSON. Паролі та ключі не включені.</string>
+    <string name="settings_backup_export_subtitle">Зберегти хости й налаштування в JSON формату 8 без паролів і ключів. Відновлювати лише у версії з підтримкою формату 8.</string>
     <string name="settings_backup_export_action">Експорт</string>
     <string name="settings_backup_import_title">Імпортувати резервну копію</string>
     <string name="settings_backup_import_subtitle">Завантажити конфігурації хостів і налаштування застосунку із файлу JSON. Наявні хости з такою самою назвою будуть оновлені; паролі та ключі не будуть імпортовані.</string>
