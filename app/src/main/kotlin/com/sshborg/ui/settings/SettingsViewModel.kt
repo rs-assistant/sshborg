@@ -5,13 +5,13 @@ import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.room.withTransaction
 import com.sshborg.R
 import androidx.lifecycle.viewModelScope
 import com.sshborg.SshBorgApp
 import com.sshborg.data.AppPreferences
 import com.sshborg.data.ExtraBar
 import com.sshborg.data.ExtraBarPresets
-import com.sshborg.data.KeystoreManager
 import com.sshborg.data.db.HostEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -33,9 +33,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             viewModelScope, SharingStarted.WhileSubscribed(5000),
             com.sshborg.data.AppPreferences.LOCK_NONE,
         )
-
-    val keystoreEncryption: StateFlow<Boolean> =
-        prefs.keystoreEncryption.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val confirmExit: StateFlow<Boolean> =
         prefs.confirmExit.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -106,9 +103,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     val lockTimeoutSeconds: StateFlow<Int> =
         prefs.lockTimeoutSeconds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 60)
-
-    private val _isMigrating = MutableStateFlow(false)
-    val isMigrating: StateFlow<Boolean> = _isMigrating
 
     private val _error = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val error: SharedFlow<String> = _error
@@ -211,29 +205,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setExtraKeysBarPinned(enabled: Boolean) {
         viewModelScope.launch { prefs.setExtraKeysBarPinned(enabled) }
-    }
-
-    /** Encrypts all existing plain-text SSH keys and host passwords with Android Keystore. */
-    fun enableKeystoreEncryption() {
-        _isMigrating.value = true
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                keyDao.getAllOnce().forEach { key ->
-                    if (key.encryptedBlob == null && key.privateKeyPem.isNotBlank()) {
-                        val blob = KeystoreManager.encrypt(key.privateKeyPem)
-                        keyDao.upsert(key.copy(privateKeyPem = "", encryptedBlob = blob))
-                    }
-                }
-                hostDao.getAllOnce().forEach { host ->
-                    if (host.encryptedPassword == null && !host.password.isNullOrEmpty()) {
-                        val blob = KeystoreManager.encrypt(host.password)
-                        hostDao.upsert(host.copy(password = null, encryptedPassword = blob))
-                    }
-                }
-                prefs.setKeystoreEncryption(true)
-            }.onFailure { _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_encryption_failed)) }
-            _isMigrating.value = false
-        }
     }
 
     fun exportHosts(uri: Uri) {
@@ -368,44 +339,46 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                         connectCount = o.optInt("connectCount", 0),
                     )
                 }
-                val existingByLabel = hostDao.getAllOnce().associateBy { it.label }
                 var inserted = 0; var updated = 0
-                toImport.forEach { host ->
-                    val existing = existingByLabel[host.label]
-                    if (existing != null) {
-                        // Preserve the fields the backup never carries so re-importing over
-                        // an existing host doesn't wipe its credentials or saved state:
-                        // the password always stays, and so does local usage data (last
-                        // connection, counter, manual position) — the backup only fills in
-                        // what this install has never recorded. The key link is
-                        // kept too, but a host with no key adopts a same-named key resolved
-                        // from the backup (existing.keyId ?: host.keyId) — never overwriting
-                        // one already set, and never clearing it when the backup omits the name.
-                        //
-                        // Pinned host keys are kept only while the endpoint they were pinned
-                        // to is unchanged, mirroring the edit screen: a stored host key is a
-                        // TOFU anchor bound to a specific target, so if the import repoints
-                        // the host we drop it and re-verify on next connect instead of
-                        // carrying a stale pin (which would prompt forever on the main host,
-                        // or hard-fail a jump host). knownHostsEntry follows hostname+port;
-                        // jumpHostKeys (simple mode) follows the jumpHosts string.
-                        val keepHostKey  = existing.hostname == host.hostname && existing.port == host.port
-                        val keepJumpKeys = host.jumpMode == "simple" && existing.jumpHosts == host.jumpHosts
-                        hostDao.upsert(host.copy(
-                            id                = existing.id,
-                            keyId             = existing.keyId ?: host.keyId,
-                            password          = existing.password,
-                            encryptedPassword = existing.encryptedPassword,
-                            knownHostsEntry   = if (keepHostKey) existing.knownHostsEntry else null,
-                            jumpHostKeys      = if (keepJumpKeys) existing.jumpHostKeys else null,
-                            // Local usage data and manual position win when present; the
-                            // backup's values fill in only what this install doesn't have.
-                            lastConnected     = existing.lastConnected ?: host.lastConnected,
-                            connectCount      = maxOf(existing.connectCount, host.connectCount),
-                            position          = existing.position ?: host.position,
-                        ))
-                        updated++
-                    } else { hostDao.upsert(host); inserted++ }
+                sshBorgApp.db.withTransaction {
+                    val existingByLabel = hostDao.getAllOnce().associateBy { it.label }
+                    toImport.forEach { host ->
+                        val existing = existingByLabel[host.label]
+                        if (existing != null) {
+                            // Preserve the fields the backup never carries so re-importing over
+                            // an existing host doesn't wipe its credentials or saved state:
+                            // the password always stays, and so does local usage data (last
+                            // connection, counter, manual position) — the backup only fills in
+                            // what this install has never recorded. The key link is
+                            // kept too, but a host with no key adopts a same-named key resolved
+                            // from the backup (existing.keyId ?: host.keyId) — never overwriting
+                            // one already set, and never clearing it when the backup omits the name.
+                            //
+                            // Pinned host keys are kept only while the endpoint they were pinned
+                            // to is unchanged, mirroring the edit screen: a stored host key is a
+                            // TOFU anchor bound to a specific target, so if the import repoints
+                            // the host we drop it and re-verify on next connect instead of
+                            // carrying a stale pin (which would prompt forever on the main host,
+                            // or hard-fail a jump host). knownHostsEntry follows hostname+port;
+                            // jumpHostKeys (simple mode) follows the jumpHosts string.
+                            val keepHostKey  = existing.hostname == host.hostname && existing.port == host.port
+                            val keepJumpKeys = host.jumpMode == "simple" && existing.jumpHosts == host.jumpHosts
+                            hostDao.upsert(host.copy(
+                                id                = existing.id,
+                                keyId             = existing.keyId ?: host.keyId,
+                                password          = existing.password,
+                                encryptedPassword = existing.encryptedPassword,
+                                knownHostsEntry   = if (keepHostKey) existing.knownHostsEntry else null,
+                                jumpHostKeys      = if (keepJumpKeys) existing.jumpHostKeys else null,
+                                // Local usage data and manual position win when present; the
+                                // backup's values fill in only what this install doesn't have.
+                                lastConnected     = existing.lastConnected ?: host.lastConnected,
+                                connectCount      = maxOf(existing.connectCount, host.connectCount),
+                                position          = existing.position ?: host.position,
+                            ))
+                            updated++
+                        } else { hostDao.upsert(host); inserted++ }
+                    }
                 }
                 // App settings (backup version >= 3): applied reactively via DataStore.
                 root.optJSONObject("settings")?.let { prefs.importSettingsJson(it) }

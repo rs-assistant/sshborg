@@ -12,23 +12,68 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import kotlin.coroutines.resume
+import javax.crypto.Cipher
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * A fresh system authentication is required for every new SSH transport connection.
- * This is a connection gate, NOT cryptographic authorization of the AES Keystore key.
- * No cached grant is issued. Missing foreground Activity or unavailable authenticators
- * fails closed. Call before loading credentials, and again for each reconnect attempt.
+ * The connection grant is single-use and expires on stop or Activity replacement. Saved
+ * credentials additionally require their own per-operation CryptoObject authorization.
+ * Missing foreground Activity or unavailable authenticators fails closed. No grant is cached.
  */
 object ConnectionAuthorization {
     private val mutex = Mutex()
     @Volatile private var activityRef: WeakReference<FragmentActivity>? = null
+    private var activityObserver: LifecycleEventObserver? = null
+    private val foregroundGeneration = AtomicLong()
 
     fun register(activity: FragmentActivity) {
+        activityObserver?.let { observer -> activityRef?.get()?.lifecycle?.removeObserver(observer) }
+        foregroundGeneration.incrementAndGet()
         activityRef = WeakReference(activity)
+        activityObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                foregroundGeneration.incrementAndGet()
+            }
+        }.also { activity.lifecycle.addObserver(it) }
     }
 
     fun unregister(activity: FragmentActivity) {
-        if (activityRef?.get() === activity) activityRef = null
+        if (activityRef?.get() === activity) {
+            activityObserver?.let { activity.lifecycle.removeObserver(it) }
+            activityObserver = null
+            activityRef = null
+            foregroundGeneration.incrementAndGet()
+        }
+    }
+
+    internal fun isCurrentActivity(activity: FragmentActivity): Boolean = activityRef?.get() === activity
+
+    internal suspend fun requireFreshAttempt(): ConnectionAttemptGrant? {
+        val generation = foregroundGeneration.get()
+        if (!requireFreshAuthentication()) return null
+        return withContext(Dispatchers.Main.immediate) {
+            val activity = activityRef?.get() ?: return@withContext null
+            if (foregroundGeneration.get() != generation || !isForeground(activity)) return@withContext null
+            ConnectionAttemptGrant {
+                foregroundGeneration.get() == generation && isForeground(activity)
+            }
+        }
+    }
+
+    internal suspend fun consumeAttempt(grant: ConnectionAttemptGrant): Boolean =
+        withContext(Dispatchers.Main.immediate) { grant.consume() }
+
+    private fun isForeground(activity: FragmentActivity): Boolean =
+        isCurrentActivity(activity) && !activity.isFinishing && !activity.isDestroyed &&
+            activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+
+    /** Shares the prompt mutex with the connection gate: two CryptoObjects never compete. */
+    internal suspend fun authorizeCipher(cipher: Cipher): Cipher? = mutex.withLock {
+        withContext(Dispatchers.Main.immediate) {
+            val activity = activityRef?.get() ?: return@withContext null
+            AuthenticatedCipherPrompt.authorize(activity, cipher)
+        }
     }
 
     suspend fun requireFreshAuthentication(): Boolean = mutex.withLock {
@@ -41,46 +86,55 @@ object ConnectionAuthorization {
                 BiometricManager.BIOMETRIC_SUCCESS) return@withContext false
 
             suspendCancellableCoroutine { continuation ->
-                val lifecycleObserver = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
-                        if (continuation.isActive) continuation.resume(false)
-                    }
-                }
-                activity.lifecycle.addObserver(lifecycleObserver)
-                // Cleanup is handled by the cancellation handler and prompt callbacks.
-                val prompt = BiometricPrompt(
-                    activity,
-                    androidx.core.content.ContextCompat.getMainExecutor(activity),
-                    object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            activity.lifecycle.removeObserver(lifecycleObserver)
-                            if (continuation.isActive) continuation.resume(
-                                !activity.isFinishing && !activity.isDestroyed &&
-                                    activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
-                                    activityRef?.get() === activity
-                            )
-                        }
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            activity.lifecycle.removeObserver(lifecycleObserver)
-                            if (continuation.isActive) continuation.resume(false)
-                        }
-                    }
+                var prompt: BiometricPrompt? = null
+                lateinit var lifecycleObserver: LifecycleEventObserver
+                val request = AuthenticationPromptRequest<Unit>(
+                    executeOnMain = { action -> activity.runOnUiThread { action() } },
+                    canAccept = {
+                        !activity.isFinishing && !activity.isDestroyed &&
+                            activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                            activityRef?.get() === activity
+                    },
+                    cleanup = { cancelPrompt ->
+                        activity.lifecycle.removeObserver(lifecycleObserver)
+                        if (cancelPrompt) prompt?.cancelAuthentication()
+                    },
+                    deliver = { value ->
+                        if (continuation.isActive) continuation.resume(value != null)
+                    },
                 )
-                continuation.invokeOnCancellation {
-                    activity.lifecycle.removeObserver(lifecycleObserver)
-                    prompt.cancelAuthentication()
+                lifecycleObserver = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                        request.reject()
+                    }
                 }
+                continuation.invokeOnCancellation { request.cancel() }
+                if (!continuation.isActive) return@suspendCancellableCoroutine
                 try {
-                    prompt.authenticate(
-                    BiometricPrompt.PromptInfo.Builder()
-                        .setTitle("Authorize SSH / SFTP connection")
-                        .setSubtitle("Verify your identity before connecting")
-                        .setAllowedAuthenticators(authenticators)
-                        .build()
+                    activity.lifecycle.addObserver(lifecycleObserver)
+                    val createdPrompt = BiometricPrompt(
+                        activity,
+                        androidx.core.content.ContextCompat.getMainExecutor(activity),
+                        object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                request.succeed(Unit)
+                            }
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                request.reject()
+                            }
+                        }
+                    )
+                    prompt = createdPrompt
+                    if (!continuation.isActive) return@suspendCancellableCoroutine
+                    createdPrompt.authenticate(
+                        BiometricPrompt.PromptInfo.Builder()
+                            .setTitle("Authorize SSH / SFTP connection")
+                            .setSubtitle("Verify your identity before connecting")
+                            .setAllowedAuthenticators(authenticators)
+                            .build()
                     )
                 } catch (_: RuntimeException) {
-                    activity.lifecycle.removeObserver(lifecycleObserver)
-                    if (continuation.isActive) continuation.resume(false)
+                    request.reject()
                 }
             }
         }

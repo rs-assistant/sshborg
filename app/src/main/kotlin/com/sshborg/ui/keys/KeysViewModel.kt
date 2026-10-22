@@ -1,16 +1,20 @@
 package com.sshborg.ui.keys
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sshborg.SshBorgApp
-import com.sshborg.data.KeystoreManager
+import com.sshborg.data.ProtectedCredentials
 import com.sshborg.data.db.SshKeyEntity
 import com.sshborg.data.ssh.SshManager
+import com.sshborg.data.ssh.ImportedKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,17 +23,17 @@ class KeysViewModel(app: Application) : AndroidViewModel(app) {
 
     private val sshBorgApp = app as SshBorgApp
     private val dao        = sshBorgApp.db.sshKeyDao()
-    private val prefs      = sshBorgApp.appPreferences
+    var isSaving by mutableStateOf(false)
+        private set
 
     val keys: StateFlow<List<SshKeyEntity>> =
         dao.getAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun generateKey(label: String, type: String, size: String = "", onDone: () -> Unit) = viewModelScope.launch {
-        val (priv, pub) = SshManager.generateKeyPair(type, comment = commentFor(label), bits = size.toIntOrNull())
-        // Hardened: never persist newly generated private keys as plaintext.
-        val blob = withContext(Dispatchers.IO) { KeystoreManager.encrypt(priv) }
-        dao.upsert(SshKeyEntity(label = label, keyType = type, privateKeyPem = "", encryptedBlob = blob, publicKey = pub))
-        onDone()
+    fun generateKey(label: String, type: String, size: String = "", onError: (String) -> Unit, onDone: () -> Unit) {
+        writeKey(label, onError, onDone) {
+            val (priv, pub) = SshManager.generateKeyPair(type, comment = commentFor(label), bits = size.toIntOrNull())
+            ImportedKey(priv, pub, type)
+        }
     }
 
     fun importKey(
@@ -38,36 +42,48 @@ class KeysViewModel(app: Application) : AndroidViewModel(app) {
         passphrase: String?,
         onError: (String) -> Unit,
         onDone: () -> Unit,
-    ) = viewModelScope.launch {
-        val typed = passphrase.takeIf { !it.isNullOrEmpty() }
-        val result = runCatching {
-            withContext(Dispatchers.IO) { SshManager.importPrivateKey(pem, typed) }
+    ) {
+        writeKey(label, onError, onDone) {
+            val imported = SshManager.importPrivateKey(pem, passphrase.takeIf { !it.isNullOrEmpty() })
+            imported.copy(publicKey = withComment(imported.publicKey, commentFor(label)))
         }
-        val imported = result.getOrElse { onError(it.message ?: ""); return@launch }
-        val pubKey = withComment(imported.publicKey, commentFor(label))   // comment matches the chosen label
-        // The key comes back unlocked, so there is no passphrase to keep: what the user typed
-        // was needed to open it and is dropped here with the rest of this call's locals.
-        // Hardened: imported keys must also be encrypted, irrespective of legacy preferences.
-        val blob = withContext(Dispatchers.IO) { KeystoreManager.encrypt(imported.pem) }
-        dao.upsert(SshKeyEntity(label = label, keyType = imported.keyType, privateKeyPem = "", encryptedBlob = blob, publicKey = pubKey))
-        onDone()
     }
 
-    /**
-     * Whether [key] is stored still encrypted, which no import produces any more but every
-     * encrypted key imported by a released version does — those were kept as they arrived and
-     * their passphrase was thrown away, so they can never authenticate. Reading and parsing the
-     * key is cheap next to a connection, and this is what the list warns about: such a key has
-     * to be imported again.
-     */
-    suspend fun needsReimport(key: SshKeyEntity): Boolean = withContext(Dispatchers.IO) {
-        val pem = KeystoreManager.getPrivateKeyPem(key) ?: return@withContext false
-        SshManager.isKeyEncrypted(pem)
+    private fun writeKey(
+        label: String,
+        onError: (String) -> Unit,
+        onDone: () -> Unit,
+        prepare: suspend () -> ImportedKey,
+    ) {
+        if (isSaving) return
+        isSaving = true
+        viewModelScope.launch {
+            var prepared = false
+            try {
+                val key = withContext(Dispatchers.IO) { prepare() }
+                prepared = true
+                withContext(Dispatchers.IO) {
+                    persistEncryptedKey(label, key, ProtectedCredentials::encrypt) { dao.upsert(it) }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Do not put raw storage/Keystore errors or key material in UI messages.
+                val code = if (prepared) "save_failed" else failure.message.takeIf {
+                    it in setOf("encrypted", "wrong_passphrase", "unsupported_encryption")
+                } ?: "invalid"
+                onError(code)
+                return@launch
+            } finally {
+                isSaving = false
+            }
+            onDone()
+        }
     }
 
     fun renameKey(key: SshKeyEntity, newLabel: String) = viewModelScope.launch {
         // Also refresh the comment embedded in the public key so it matches the new name.
-        dao.upsert(key.copy(label = newLabel, publicKey = withComment(key.publicKey, commentFor(newLabel))))
+        dao.rename(key.id, newLabel, withComment(key.publicKey, commentFor(newLabel)))
     }
 
     fun deleteKey(key: SshKeyEntity) = viewModelScope.launch { dao.delete(key) }

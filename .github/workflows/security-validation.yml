@@ -8,6 +8,12 @@ on:
     branches:
       - V1
   workflow_dispatch:
+    inputs:
+      publish_tablet_test:
+        description: Publish a verified Android 11+ tablet-test prerelease (not a production release)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,31 +41,73 @@ jobs:
           sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
       - name: Verify Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Test prerelease safeguards
+        run: python3 -m unittest discover -s scripts -p 'test_tablet_release.py' -v
       - name: Static credential policy checks
         run: |
           python3 - <<'PY'
           from pathlib import Path
           root = Path('app/src/main/kotlin/com/sshborg')
           key_vm = (root/'ui/keys/KeysViewModel.kt').read_text()
+          key_write = (root/'ui/keys/EncryptedKeyWrite.kt').read_text()
+          key_screen = (root/'ui/keys/KeysScreen.kt').read_text()
           host_vm = (root/'ui/hosts/AddEditHostViewModel.kt').read_text()
           store = (root/'data/KeystoreManager.kt').read_text()
           settings = (root/'ui/settings/SettingsViewModel.kt').read_text()
+          keystore_v2 = (root/'data/KeystoreV2.kt').read_text()
+          host_editor = (root/'ui/hosts/AddEditHostViewModel.kt').read_text()
           terminal = (root/'ui/terminal/TerminalViewModel.kt').read_text()
           sftp = (root/'ui/sftp/SftpViewModel.kt').read_text()
+          protected = (root/'data/ProtectedCredentials.kt').read_text()
+          migration = (root/'data/CredentialMigration.kt').read_text()
+          assert 'minSdk = 30' in Path('app/build.gradle.kts').read_text()
           assert 'privateKeyPem = priv' not in key_vm
           assert 'privateKeyPem = imported.pem' not in key_vm
+          assert 'persistEncryptedKey(' in key_vm
+          assert 'privateKeyPem =' not in key_write
+          assert 'KeystoreManager.decrypt' not in key_vm
+          assert 'getPrivateKeyPem' not in key_vm
+          assert 'ProtectedCredentials::encrypt' in key_vm
+          assert 'ProtectedCredentials::encrypt' in host_editor
+          assert 'needsReimport(key)' not in key_screen
           assert 'else -> rawPassword to null' not in host_vm
           assert 'entity.privateKeyPem.isNotBlank() -> entity.privateKeyPem' not in store
           assert 'fun disableKeystoreEncryption()' not in settings
+          assert 'else -> h.password ?: ""' not in host_editor
+          assert '!host.password.isNullOrEmpty()' not in host_editor
+          assert 'KeystoreManager.decrypt' not in host_editor
+          assert 'mapNotNull' not in host_editor
+          assert 'encodeJumpHostSelection(jumpSelection)' in host_editor
+          decrypt_v2 = keystore_v2.split('fun prepareDecrypt(', 1)[1].split('/**', 1)[0]
+          assert 'getOrCreateKey' not in decrypt_v2
+          assert 'CredentialCipherV2.prepareDecrypt' in decrypt_v2
+          assert '.setUserAuthenticationRequired(true)' in keystore_v2
+          assert '.setUserAuthenticationParameters(0,' in keystore_v2
+          assert 'setUserAuthenticationValidityDurationSeconds' not in keystore_v2
+          assert 'fun encrypt(' not in store and 'generateKey' not in store and 'deleteEntry' not in store
+          assert 'enableKeystoreEncryption' not in settings
+          assert 'check(confirmed)' in migration
+          assert 'MessageDigest.isEqual' in migration
+          assert 'replaceIfUnchanged(original, replacement)' in migration
+          assert protected.count('KeystoreManager::decrypt') == 1
           for vm in (terminal, sftp):
-              assert 'ConnectionAuthorization.requireFreshAuthentication()' in vm
+              assert 'ConnectionAuthorization.requireFreshAttempt()' in vm
+              assert 'ConnectionAuthorization.consumeAttempt(' in vm
+              assert 'ProtectedCredentials::decrypt' in vm
+              assert 'KeystoreManager' not in vm
+              assert 'hostDao.upsert' not in vm
               assert 'SshAuth.Password(host.password)' not in vm
           print('PASS: static credential policy checks')
           PY
-      - name: Run JVM unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
-      - name: Compile debug APK
-        run: ./gradlew --no-daemon assembleDebug
+      - name: Run JVM and local SSH/SFTP integration tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sshborg-security-tests"
+          "$RUNNER_TEMP/sshborg-security-tests/bin/python" -m pip install -r scripts/requirements-security-tests.txt
+          "$RUNNER_TEMP/sshborg-security-tests/bin/python" scripts/run-local-security-tests.py
+      - name: Compile debug and device-test APKs
+        run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
       - name: Inspect merged debug manifest
         run: |
           python3 - <<'PY'
@@ -71,18 +119,45 @@ jobs:
           ns = '{http://schemas.android.com/apk/res/android}'
           root = ET.parse(paths[0]).getroot()
           app = root.find('application')
+          uses_sdk = root.find('uses-sdk')
+          if uses_sdk is None or uses_sdk.get(ns + 'minSdkVersion') != '30':
+              sys.exit('FAIL: minimum supported Android API must be 30')
           if app is None or app.get(ns + 'allowBackup') != 'false':
               sys.exit('FAIL: debug Android backup is not disabled')
           print('PASS: debug allowBackup=false')
           PY
-      - name: Record debug APK SHA-256
-        run: sha256sum app/build/outputs/apk/debug/app-debug.apk | tee app/build/outputs/apk/debug/SHA256SUMS
+      - name: Stage verified tablet-test bundle
+        run: |
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 scripts/tablet_release.py stage app/build/tablet-test
       - name: Upload signed debug test APK
         uses: actions/upload-artifact@v4
         with:
           name: sshborg-hardened-debug
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/debug/SHA256SUMS
+          path: app/build/tablet-test/
           if-no-files-found: error
           retention-days: 7
+
+  publish-tablet-test:
+    needs: build-and-test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_tablet_test && github.ref == 'refs/heads/security/harden-credential-storage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: tablet-test-prerelease
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: sshborg-hardened-debug
+          path: tablet-test
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/tablet_release.py publish tablet-test

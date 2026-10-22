@@ -10,14 +10,13 @@ data class SshKeyEntity(
     /** Key type: RSA, ECDSA, ED25519 */
     val keyType: String,
     /**
-     * Plain-text PEM private key, never encrypted with a passphrase: an imported key is unlocked
-     * once at import and stored unlocked, so nothing has to keep the passphrase. Empty string
-     * when [encryptedBlob] is set. Use [com.sshborg.data.KeystoreManager.getPrivateKeyPem].
+     * Legacy plaintext field, retained for schema compatibility only. New writes must leave it
+     * empty, and connection code must never use it as an authentication fallback.
      */
     val privateKeyPem: String = "",
     /** OpenSSH public key string (e.g. "ssh-ed25519 AAAA...") */
     val publicKey: String,
     val createdAt: Long = System.currentTimeMillis(),
-    /** AES-GCM blob (Base64 IV||ciphertext) set when Keystore encryption is enabled. */
+    /** New writes use v2:Base64(IV||ciphertext||tag); unprefixed v1 blobs require explicit migration. */
     val encryptedBlob: String? = null,
 )

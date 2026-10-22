@@ -87,6 +87,13 @@
     <string name="host_section_authentication">Authentication</string>
     <string name="host_auth_ssh_key">SSH Key</string>
     <string name="host_auth_password">Password</string>
+    <string name="host_password_reentry_required">The saved password used legacy plaintext storage and was not loaded. Enter it again to save it encrypted.</string>
+    <string name="host_password_keep_saved">The saved password will be kept. Enter a new password to replace it.</string>
+    <string name="host_password_remove_saved">Remove saved password</string>
+    <string name="host_password_removal_pending">The saved password will be removed when you save.</string>
+    <string name="host_load_failed">Could not load this host. Reopen the editor to try again.</string>
+    <string name="host_save_failed">Could not save this host. The editor remains open so you can try again.</string>
+    <string name="host_key_required">Select an SSH key before saving.</string>
     <string name="host_field_password">Password</string>
     <string name="host_key_select_placeholder">Select a key…</string>
     <string name="host_key_change">Change</string>
@@ -143,6 +150,20 @@
 
     <!-- Passphrase of an imported key -->
     <string name="keys_needs_passphrase">Passphrase missing — import this key again</string>
+    <string name="keys_reimport_required">This key must be imported again before use</string>
+    <string name="host_jump_selection_invalid">Select or remove every jump host before saving.</string>
+    <string name="keys_save_failed">Could not encrypt or save the key securely. Please try again.</string>
+    <string name="keys_generate_failed">Could not generate the key. Check the options and try again.</string>
+    <string name="credential_migration_title">Protected credentials</string>
+    <string name="credential_auth_required">Required</string>
+    <string name="credential_migration_explanation">Android 11 or later and system strong biometric or device PIN/pattern/password authentication are required. Each saved credential needs its own confirmation, including jump hosts. Old encrypted credentials listed below must be explicitly migrated or re-imported before use. Plaintext or damaged records require re-entry or re-import.</string>
+    <string name="credential_migration_key">Old encrypted SSH key</string>
+    <string name="credential_migration_password">Old encrypted host password</string>
+    <string name="credential_migration_action">Migrate</string>
+    <string name="credential_migration_confirm_title">Migrate %1$s?</string>
+    <string name="credential_migration_confirm_body">Only this credential will be migrated. Confirm system authentication to read the old credential, encrypt it with the protected key, and decrypt it again for verification. Multiple system prompts are required. The original is replaced only after verification and only if it has not changed. Cancelling or a failure before that commit leaves it unchanged. No old Keystore key is deleted.</string>
+    <string name="credential_migration_success">Credential migrated and verified.</string>
+    <string name="credential_migration_failed">Migration cancelled, failed, or the credential changed. The migration did not replace the original. Reload and try again, or re-import if the old encryption key is unavailable.</string>
     <string name="keys_passphrase_note">Used once to unlock the key and then dropped — the passphrase itself is never stored. The unlocked key is kept like any other key.</string>
 
     <!-- Generate key dialog -->

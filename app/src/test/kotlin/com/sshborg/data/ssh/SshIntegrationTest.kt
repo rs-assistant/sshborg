@@ -6,6 +6,7 @@ import java.security.Security
 import kotlinx.coroutines.runBlocking
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
@@ -16,8 +17,8 @@ import org.junit.Test
  * The SSH layer against a real server, which is the only place some of this can be checked at
  * all: whether a key actually authenticates is a fact about a server, not about our code.
  *
- * Skipped unless `test.properties` names a server and a directory of throwaway keys authorized
- * on it — the machine the tests run on is the simplest choice. See `test.properties.example`.
+ * Run scripts/run-local-security-tests.py for disposable loopback fixtures. Direct Gradle runs
+ * skip this suite unless the SSHBORG_SSH_* environment or test.properties supplies a server.
  */
 class SshIntegrationTest {
 
@@ -150,6 +151,56 @@ class SshIntegrationTest {
             second.disconnect()
         }
         assertFalse("a stored host key must not be asked about again", asked)
+    }
+
+    /** A changed pin is not first-use trust: it must fail before another acceptance prompt. */
+    @Test fun `a changed target host key is refused without asking to trust it again`() {
+        val s = server()
+        val params = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user,
+            auth = SshAuth.PublicKey(s.key("i_plain")), knownHostsEntry = mismatchedPin(),
+        )
+        var asked = false
+        assertThrows(JSchException::class.java) {
+            runBlocking { SshManager.openShell(params) { _, _, _ -> asked = true; true } }.disconnect()
+        }
+        assertFalse("a changed pin must not be presented as a new host", asked)
+    }
+
+    @Test fun `a changed jump host key is refused without asking to trust it again`() {
+        val s = server()
+        val auth = SshAuth.PublicKey(s.key("i_plain"))
+        val params = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user, auth = auth,
+            jumpHosts = listOf(JumpHost(s.host, s.port, s.user, mismatchedPin(), auth)),
+        )
+        var asked = false
+        assertThrows(JSchException::class.java) {
+            runBlocking { SshManager.openShell(params) { _, _, _ -> asked = true; true } }.disconnect()
+        }
+        assertFalse("a changed jump pin must stop the chain before target trust is requested", asked)
+    }
+
+    @Test fun `rejecting first use host trust prevents a shell connection`() {
+        val s = server()
+        val params = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user,
+            auth = SshAuth.PublicKey(s.key("i_plain")),
+        )
+        var asked = false
+        assertThrows(JSchException::class.java) {
+            runBlocking { SshManager.openShell(params) { _, _, _ -> asked = true; false } }.disconnect()
+        }
+        assertTrue("first use must ask for explicit trust", asked)
+    }
+
+    private fun mismatchedPin(): String {
+        val corpus = TestConfig.directory("KEY_CORPUS")
+        assumeTrue(TestConfig.NO_KEY_CORPUS, corpus != null)
+        val original = connect(SshAuth.PublicKey(server().key("i_plain")))
+        val marker = try { original.hostKeyLine.substringBefore(' ') } finally { original.disconnect() }
+        val publicKey = java.io.File(corpus, "k_plain.pub").readText().trim().split(Regex("\\s+"))
+        return "$marker ${publicKey[0]} ${publicKey[1]}"
     }
 
     companion object {

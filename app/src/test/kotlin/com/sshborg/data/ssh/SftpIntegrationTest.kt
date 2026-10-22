@@ -1,16 +1,19 @@
 package com.sshborg.data.ssh
 
 import com.sshborg.TestConfig
+import com.jcraft.jsch.JSchException
 import java.security.Security
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.runBlocking
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -22,7 +25,8 @@ import org.junit.Test
  * exactly as it went, over a real transfer rather than in memory, and that the channel survives
  * being used from two threads at once — the bug that cost 1.17.1 its first week.
  *
- * Skipped unless `test.properties` names a server; see `test.properties.example`.
+ * Run scripts/run-local-security-tests.py for disposable loopback fixtures. Direct Gradle runs
+ * skip this suite without the SSHBORG_SSH_* environment or a configured test.properties.
  */
 class SftpIntegrationTest {
 
@@ -66,6 +70,24 @@ class SftpIntegrationTest {
         sftp().writeFile(path, ByteArray(0))
         assertEquals(0L, sftp().sizeOf(path))
         assertArrayEquals(ByteArray(0), sftp().readFile(path, limit = 1024))
+    }
+
+    @Test fun `a changed host key cannot open an SFTP session`() {
+        val s = configured!!
+        val corpus = TestConfig.directory("KEY_CORPUS")
+        assumeTrue(TestConfig.NO_KEY_CORPUS, corpus != null)
+        val key = java.io.File(corpus, "k_plain.pub").readText().trim().split(Regex("\\s+"))
+        val marker = sftp().hostKeyLine.substringBefore(' ')
+        val params = SshConnectionParams(
+            hostname = s.host, port = s.port, username = s.user,
+            auth = SshAuth.PublicKey(s.key("i_plain")),
+            knownHostsEntry = "$marker ${key[0]} ${key[1]}",
+        )
+        var asked = false
+        assertThrows(JSchException::class.java) {
+            runBlocking { SshManager.openSftp(params) { _, _, _ -> asked = true; true } }.disconnect()
+        }
+        assertFalse("a changed pin must not be presented as a new host", asked)
     }
 
     @Test fun `a file bigger than the caller will hold is refused, not truncated`() {

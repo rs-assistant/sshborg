@@ -67,6 +67,12 @@ fun AddEditHostScreen(
     val availableJumpHosts by vm.availableJumpHosts.collectAsState()
     val keys by vm.keys.collectAsState()
     val password by vm.password.collectAsState()
+    val needsPasswordReentry by vm.needsPasswordReentry.collectAsState()
+    val hasSavedPassword by vm.hasSavedPassword.collectAsState()
+    val removePasswordOnSave by vm.removePasswordOnSave.collectAsState()
+    val hostLoaded by vm.hostLoaded.collectAsState()
+    val isSaving by vm.isSaving.collectAsState()
+    val saveError by vm.saveError.collectAsState()
     val sftpStartMode by vm.sftpStartMode.collectAsState()
     val sftpStartDir by vm.sftpStartDir.collectAsState()
     val sftpShowHidden by vm.sftpShowHidden.collectAsState()
@@ -258,10 +264,39 @@ fun AddEditHostScreen(
                 }
             }
 
+            if (needsPasswordReentry && !useKey && password.isEmpty() && !removePasswordOnSave) {
+                Text(
+                    stringResource(R.string.host_password_reentry_required),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             if (!useKey) {
+                if (hasSavedPassword) {
+                    if (removePasswordOnSave) {
+                        Text(
+                            stringResource(R.string.host_password_removal_pending),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = vm::keepSavedPassword) {
+                            Text(stringResource(R.string.action_undo))
+                        }
+                    } else {
+                        if (!needsPasswordReentry && password.isEmpty()) {
+                            Text(
+                                stringResource(R.string.host_password_keep_saved),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        TextButton(onClick = vm::removeSavedPassword) {
+                            Text(stringResource(R.string.host_password_remove_saved))
+                        }
+                    }
+                }
                 if (touchless) {
                     HostField(
-                        value = password, onValueChange = { vm.password.value = it },
+                        value = password, onValueChange = vm::setPassword,
                         label = stringResource(R.string.host_field_password),
                         touchless = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -269,7 +304,7 @@ fun AddEditHostScreen(
                     )
                 } else {
                     OutlinedTextField(
-                        value = password, onValueChange = { vm.password.value = it },
+                        value = password, onValueChange = vm::setPassword,
                         label = { Text(stringResource(R.string.host_field_password)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -495,10 +530,17 @@ fun AddEditHostScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            saveError?.let { message ->
+                Text(
+                    stringResource(message),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Button(
                 onClick = { vm.save(onSaved) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = hostname.isNotBlank() && username.isNotBlank(),
+                enabled = hostLoaded && !isSaving && hostname.isNotBlank() && username.isNotBlank(),
             ) {
                 Text(stringResource(R.string.action_save))
             }

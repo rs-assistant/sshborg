@@ -69,7 +69,6 @@ fun SettingsScreen(
     val focusManager = LocalFocusManager.current
     val lockMode              by vm.lockMode.collectAsState()
     val lockTimeoutSeconds    by vm.lockTimeoutSeconds.collectAsState()
-    val keystoreEncryption    by vm.keystoreEncryption.collectAsState()
     val confirmExit           by vm.confirmExit.collectAsState()
     val invertTerminalScroll  by vm.invertTerminalScroll.collectAsState()
     val sftpSortDirsFirst     by vm.sftpSortDirsFirst.collectAsState()
@@ -83,7 +82,6 @@ fun SettingsScreen(
     val extraKeysBarPinned    by vm.extraKeysBarPinned.collectAsState()
     val extraBar              by vm.extraBar.collectAsState()
     val hostSortMode          by vm.hostSortMode.collectAsState()
-    val isMigrating           by vm.isMigrating.collectAsState()
     val nightMode             by vm.nightMode.collectAsState()
     val allowScreenshots      by vm.allowScreenshots.collectAsState()
     val scrollbackLines       by vm.scrollbackLines.collectAsState()
@@ -101,7 +99,6 @@ fun SettingsScreen(
         vm.message.collect { snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short) }
     }
 
-    var showEnableEncryptionDialog by remember { mutableStateOf(false) }
     var lockModeMenuExpanded by remember { mutableStateOf(false) }
     var showLockDisclaimer by remember { mutableStateOf(false) }
     var showLockSecretDialog by remember { mutableStateOf(false) }
@@ -694,16 +691,13 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.settings_encrypt_title)) },
                 supportingContent = { Text(stringResource(R.string.settings_encrypt_subtitle)) },
                 trailingContent = {
-                    if (isMigrating) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    } else {
-                        // Hardened: encryption cannot be disabled in settings.
-                        Text("Required", style = MaterialTheme.typography.labelMedium)
-                    }
+                    Text(stringResource(R.string.credential_auth_required), style = MaterialTheme.typography.labelMedium)
                 },
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            CredentialMigrationSection()
 
             // ── Backup section ────────────────────────────────────────────────
             Text(
@@ -774,23 +768,5 @@ fun SettingsScreen(
         }
     }
 
-    if (showEnableEncryptionDialog) {
-        AlertDialog(
-            onDismissRequest = { showEnableEncryptionDialog = false },
-            title = { Text(stringResource(R.string.settings_encrypt_dialog_title)) },
-            text  = { Text(stringResource(R.string.settings_encrypt_dialog_body)) },
-            confirmButton = {
-                FocusOutlinedButton(onClick = {
-                    showEnableEncryptionDialog = false
-                    vm.enableKeystoreEncryption()
-                }) { Text(stringResource(R.string.action_enable)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEnableEncryptionDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        )
-    }
 }
 

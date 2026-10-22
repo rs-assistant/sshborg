@@ -419,7 +419,8 @@ object SshManager {
         })
 
         val config = Properties().apply {
-            setProperty("StrictHostKeyChecking", "ask")
+            // Only first use may ask for trust. A changed or unusable saved pin must fail.
+            setProperty("StrictHostKeyChecking", if (params.knownHostsEntry.isNullOrBlank()) "ask" else "yes")
             setProperty("PreferredAuthentications", when (params.auth) {
                 is SshAuth.PublicKey -> "publickey"
                 is SshAuth.Password  -> "password,keyboard-interactive"
