@@ -270,6 +270,17 @@ object SshManager {
         params: SshConnectionParams,
         guard: ConnectGuard,
     ): SessionResult {
+        // Only null means first use. Validate the whole chain before opening any transport:
+        // a damaged saved pin must not trigger trust prompts, even on an earlier jump.
+        require(params.knownHostsEntry == null || params.knownHostsEntry.isNotBlank()) {
+            "The saved target host-key pin is blank"
+        }
+        for ((hop, jump) in params.jumpHosts.withIndex()) {
+            require(jump.knownHostsEntry == null || jump.knownHostsEntry.isNotBlank()) {
+                "The saved host-key pin for jump host ${hop + 1} is blank"
+            }
+        }
+
         // ── 1. Build jump-host chain ────────────────────────────────────────────
         val jumpSessions = mutableListOf<Session>()
         val newJumpKeyLines = mutableListOf<String>()
@@ -289,7 +300,7 @@ object SshManager {
                     jumpAuth.passphrase?.toByteArray(),
                 )
             }
-            if (!jump.knownHostsEntry.isNullOrBlank()) {
+            if (jump.knownHostsEntry != null) {
                 jumpJsch.setKnownHosts(ByteArrayInputStream(jump.knownHostsEntry.toByteArray()))
             }
 
@@ -328,7 +339,7 @@ object SshManager {
             })
 
             val jumpConfig = Properties().apply {
-                setProperty("StrictHostKeyChecking", if (jump.knownHostsEntry.isNullOrBlank()) "ask" else "yes")
+                setProperty("StrictHostKeyChecking", if (jump.knownHostsEntry == null) "ask" else "yes")
                 setProperty("PreferredAuthentications", when (jumpAuth) {
                     is SshAuth.PublicKey -> "publickey"
                     is SshAuth.Password  -> "password,keyboard-interactive"
@@ -348,7 +359,7 @@ object SshManager {
             jumpSession.connect(20_000)
 
             // Collect the host key so we can persist it if it was unknown
-            if (jump.knownHostsEntry.isNullOrBlank()) {
+            if (jump.knownHostsEntry == null) {
                 val keyLine = buildKnownHostsLine(jumpSession.hostKey)
                 if (jump.hostId != null) {
                     // Host-list mode: associate key update with the jump host entity
@@ -377,7 +388,7 @@ object SshManager {
             )
         }
 
-        if (!params.knownHostsEntry.isNullOrBlank()) {
+        if (params.knownHostsEntry != null) {
             jsch.setKnownHosts(ByteArrayInputStream(params.knownHostsEntry.toByteArray()))
         }
 
@@ -419,7 +430,8 @@ object SshManager {
         })
 
         val config = Properties().apply {
-            setProperty("StrictHostKeyChecking", "ask")
+            // Only first use may ask for trust. A changed or unusable saved pin must fail.
+            setProperty("StrictHostKeyChecking", if (params.knownHostsEntry == null) "ask" else "yes")
             setProperty("PreferredAuthentications", when (params.auth) {
                 is SshAuth.PublicKey -> "publickey"
                 is SshAuth.Password  -> "password,keyboard-interactive"

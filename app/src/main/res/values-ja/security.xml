@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_reentry_required">保存済みパスワードは旧形式の平文保存のため読み込みませんでした。暗号化して保存するには再入力してください。</string>
+    <string name="host_key_required">保存する前に SSH 鍵を選択してください。</string>
+    <string name="host_save_failed">ホストを保存できませんでした。編集画面は開いたままなので再試行できます。</string>
+    <string name="keys_reimport_required">使用前にこの鍵を再インポートしてください</string>
+    <string name="host_jump_selection_invalid">保存前に各踏み台ホストを選択するか削除してください。</string>
+    <string name="host_jump_chain_invalid">各踏み台を [user@]host[:port] 形式で入力してください。IPv6 は角括弧で囲みます。経路全体を空にすることもできます。</string>
+    <string name="keys_save_failed">鍵を安全に暗号化または保存できませんでした。再試行してください。</string>
+    <string name="keys_generate_failed">鍵を生成できませんでした。設定を確認して再試行してください。</string>
+    <string name="credential_migration_title">保護された認証情報</string>
+    <string name="credential_auth_required">必須</string>
+    <string name="credential_migration_explanation">Android 11 以降と、システムの強力な生体認証または端末の PIN・パターン・パスワード認証が必要です。踏み台を含む各保存済み認証情報に個別の確認が必要です。下記の旧形式の暗号化情報は、明示的に移行または再インポートしてから使用してください。平文や破損した記録は再入力または再インポートが必要です。</string>
+    <string name="credential_migration_key">旧形式の暗号化 SSH 鍵</string>
+    <string name="credential_migration_password">旧形式の暗号化ホストパスワード</string>
+    <string name="credential_migration_action">移行</string>
+    <string name="credential_migration_confirm_title">%1$s を移行しますか？</string>
+    <string name="credential_migration_confirm_body">この認証情報だけを移行します。システム認証で旧情報を読み取り、保護された鍵で暗号化し、再度復号して検証します。複数回のシステム確認が必要です。検証に成功し元の記録が変更されていない場合だけ置換します。確定前のキャンセルや失敗では元の記録は変わりません。旧 Keystore 鍵は削除しません。</string>
+    <string name="credential_migration_success">認証情報を移行し、検証しました。</string>
+    <string name="credential_migration_failed">移行がキャンセル・失敗したか、認証情報が変更されました。この移行では元の記録を置換していません。再読み込みして再試行するか、旧暗号鍵が使えない場合は再インポートしてください。</string>
+    <string name="backup_import_failed">ホストのインポートに失敗しました。ホストやグループは変更していません。名前の重複、SSH 鍵や踏み台の不足、不正なデータを確認してください。踏み台の行 ID を含む旧バックアップは元の端末で再エクスポートしてください。</string>
+    <string name="backup_export_failed">バックアップを出力できませんでした。保存先、ホスト名と鍵名の一意性、踏み台の設定を確認してください。</string>
+    <string name="backup_settings_import_failed">ホストはインポート済み（新規 %1$d、更新 %2$d）ですが、アプリ設定を復元できませんでした。設定を確認してください。</string>
+    <string name="connection_authorization_title">SSH / SFTP 接続を許可</string>
+    <string name="connection_authorization_subtitle">接続前に本人確認を行ってください</string>
+    <string name="credential_authorization_title">保護された SSH 認証情報を許可</string>
+</resources>

@@ -393,7 +393,7 @@
 
     <!-- Backup export/import -->
     <string name="settings_backup_export_title">Экспорт копии</string>
-    <string name="settings_backup_export_subtitle">Сохранить конфигурации хостов и настройки приложения в файл JSON. Пароли и ключи не включаются.</string>
+    <string name="settings_backup_export_subtitle">Сохранить хосты и настройки в JSON формата 8 без паролей и ключей. Восстанавливать только в версии с поддержкой формата 8.</string>
     <string name="settings_backup_export_action">Экспорт</string>
     <string name="settings_backup_import_title">Импорт копии</string>
     <string name="settings_backup_import_subtitle">Загрузить конфигурации хостов и настройки приложения из файла JSON. Существующие хосты с тем же именем будут обновлены; пароли и ключи импортированы не будут.</string>

@@ -362,7 +362,7 @@
     <string name="error_encryption_failed">Chiffrement échoué</string>
     <string name="error_decryption_failed">Déchiffrement échoué</string>
     <string name="settings_backup_export_title">Exporter la sauvegarde</string>
-    <string name="settings_backup_export_subtitle">Enregistrer les configurations des hôtes et les réglages de l\'application dans un fichier JSON. Les mots de passe et les clés ne sont pas inclus.</string>
+    <string name="settings_backup_export_subtitle">Enregistrer les hôtes et réglages en JSON au format 8, sans mots de passe ni clés. Restaurer uniquement avec une version compatible avec le format 8.</string>
     <string name="settings_backup_export_action">Exporter</string>
     <string name="settings_backup_import_title">Importer la sauvegarde</string>
     <string name="settings_backup_import_subtitle">Charger les configurations des hôtes et les réglages de l\'application depuis un fichier JSON. Les hôtes existants avec le même nom seront mis à jour ; mots de passe et clés ne seront pas importés.</string>

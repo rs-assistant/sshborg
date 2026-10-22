@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sshborg"
-        minSdk = 29
+        minSdk = 30
         targetSdk = 36
         versionCode = 37
         versionName = "1.19.1"
@@ -36,7 +36,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["allowBackup"] = "true"
+            manifestPlaceholders["allowBackup"] = "false"
             manifestPlaceholders["appLabel"] = "SSHBorgDebug"
         }
         release {

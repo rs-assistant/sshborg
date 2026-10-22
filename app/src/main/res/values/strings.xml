@@ -87,6 +87,13 @@
     <string name="host_section_authentication">Authentication</string>
     <string name="host_auth_ssh_key">SSH Key</string>
     <string name="host_auth_password">Password</string>
+    <string name="host_password_reentry_required">The saved password used legacy plaintext storage and was not loaded. Enter it again to save it encrypted.</string>
+    <string name="host_password_keep_saved">The saved password will be kept. Enter a new password to replace it.</string>
+    <string name="host_password_remove_saved">Remove saved password</string>
+    <string name="host_password_removal_pending">The saved password will be removed when you save.</string>
+    <string name="host_load_failed">Could not load this host. Reopen the editor to try again.</string>
+    <string name="host_save_failed">Could not save this host. The editor remains open so you can try again.</string>
+    <string name="host_key_required">Select an SSH key before saving.</string>
     <string name="host_field_password">Password</string>
     <string name="host_key_select_placeholder">Select a key…</string>
     <string name="host_key_change">Change</string>
@@ -143,6 +150,27 @@
 
     <!-- Passphrase of an imported key -->
     <string name="keys_needs_passphrase">Passphrase missing — import this key again</string>
+    <string name="keys_reimport_required">This key must be imported again before use</string>
+    <string name="host_jump_selection_invalid">Select or remove every jump host before saving.</string>
+    <string name="host_jump_chain_invalid">Enter every jump host as [user@]host[:port], using brackets for IPv6, or leave the chain empty.</string>
+    <string name="keys_save_failed">Could not encrypt or save the key securely. Please try again.</string>
+    <string name="keys_generate_failed">Could not generate the key. Check the options and try again.</string>
+    <string name="credential_migration_title">Protected credentials</string>
+    <string name="credential_auth_required">Required</string>
+    <string name="connection_authorization_title">Authorize SSH / SFTP connection</string>
+    <string name="connection_authorization_subtitle">Verify your identity before connecting</string>
+    <string name="credential_authorization_title">Authorize protected SSH credential</string>
+    <string name="credential_migration_explanation">Android 11 or later and system strong biometric or device PIN/pattern/password authentication are required. Each saved credential needs its own confirmation, including jump hosts. Old encrypted credentials listed below must be explicitly migrated or re-imported before use. Plaintext or damaged records require re-entry or re-import.</string>
+    <string name="credential_migration_key">Old encrypted SSH key</string>
+    <string name="credential_migration_password">Old encrypted host password</string>
+    <string name="credential_migration_action">Migrate</string>
+    <string name="credential_migration_confirm_title">Migrate %1$s?</string>
+    <string name="credential_migration_confirm_body">Only this credential will be migrated. Confirm system authentication to read the old credential, encrypt it with the protected key, and decrypt it again for verification. Multiple system prompts are required. The original is replaced only after verification and only if it has not changed. Cancelling or a failure before that commit leaves it unchanged. No old Keystore key is deleted.</string>
+    <string name="credential_migration_success">Credential migrated and verified.</string>
+    <string name="credential_migration_failed">Migration cancelled, failed, or the credential changed. The migration did not replace the original. Reload and try again, or re-import if the old encryption key is unavailable.</string>
+    <string name="backup_import_failed">Host import failed; no hosts or groups were changed. Check for duplicate names, missing SSH keys or jump hosts, or invalid data. Old backups with jump-host row IDs must be exported again from the source installation.</string>
+    <string name="backup_export_failed">Could not export the backup. Check the destination, unique host and key names, and all configured jump hosts.</string>
+    <string name="backup_settings_import_failed">Hosts imported (%1$d new, %2$d updated), but app settings could not be restored. Review your settings.</string>
     <string name="keys_passphrase_note">Used once to unlock the key and then dropped — the passphrase itself is never stored. The unlocked key is kept like any other key.</string>
 
     <!-- Generate key dialog -->
@@ -388,7 +416,7 @@
 
     <!-- Backup export/import -->
     <string name="settings_backup_export_title">Export backup</string>
-    <string name="settings_backup_export_subtitle">Save host configurations and app settings to a JSON file. Passwords and keys are not included.</string>
+    <string name="settings_backup_export_subtitle">Save host configurations and app settings as format 8 JSON. Passwords and keys are excluded. Restore only with a version that supports format 8.</string>
     <string name="settings_backup_export_action">Export</string>
     <string name="settings_backup_import_title">Import backup</string>
     <string name="settings_backup_import_subtitle">Load host configurations and app settings from a JSON file. Existing hosts with the same name will be updated; passwords and keys will not be imported.</string>

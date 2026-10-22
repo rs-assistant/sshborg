@@ -17,7 +17,11 @@ An SSH client for Android. Full terminal emulation, SFTP file manager, SSH key m
 - **Backup / restore** — export and import host configurations as JSON (credentials excluded)
 - **No ads, no tracking, no third-party SDKs**
 
-Requires Android 10 (API 29) or later.
+This security-hardening branch requires Android 11 (API 30) or later, with a secure device
+lock and strong biometric or device-credential authentication for saved credentials. Existing
+encrypted credentials require explicit migration in Settings; plaintext records require
+re-import or re-entry. See the [security implementation and device-acceptance status](docs/security-hardening-plan.md)
+before installing this unreleased branch with real credentials.
 
 ## Building
 

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_reentry_required">Le mot de passe enregistré utilisait l’ancien stockage en clair et n’a pas été chargé. Saisissez-le à nouveau pour le conserver chiffré.</string>
+    <string name="host_key_required">Sélectionnez une clé SSH avant d’enregistrer.</string>
+    <string name="host_save_failed">Impossible d’enregistrer cet hôte. L’éditeur reste ouvert pour réessayer.</string>
+    <string name="keys_reimport_required">Réimportez cette clé avant de l’utiliser</string>
+    <string name="host_jump_selection_invalid">Sélectionnez ou retirez chaque hôte de rebond avant d’enregistrer.</string>
+    <string name="host_jump_chain_invalid">Saisissez chaque rebond sous la forme [user@]host[:port], avec des crochets pour IPv6, ou videz toute la chaîne.</string>
+    <string name="keys_save_failed">Impossible de chiffrer ou d’enregistrer la clé en toute sécurité. Réessayez.</string>
+    <string name="keys_generate_failed">Impossible de générer la clé. Vérifiez les options et réessayez.</string>
+    <string name="credential_migration_title">Identifiants protégés</string>
+    <string name="credential_auth_required">Obligatoire</string>
+    <string name="credential_migration_explanation">Android 11 ou ultérieur et une authentification système par biométrie forte ou code PIN, schéma ou mot de passe de l’appareil sont nécessaires. Chaque identifiant enregistré, y compris pour les rebonds, exige une confirmation distincte. Les anciens identifiants chiffrés ci-dessous doivent être explicitement migrés ou réimportés avant utilisation. Les données en clair ou endommagées nécessitent une nouvelle saisie ou importation.</string>
+    <string name="credential_migration_key">Ancienne clé SSH chiffrée</string>
+    <string name="credential_migration_password">Ancien mot de passe d’hôte chiffré</string>
+    <string name="credential_migration_action">Migrer</string>
+    <string name="credential_migration_confirm_title">Migrer %1$s ?</string>
+    <string name="credential_migration_confirm_body">Seul cet identifiant sera migré. Confirmez l’authentification système pour lire l’ancien identifiant, le chiffrer avec la clé protégée et le déchiffrer à nouveau pour vérification. Plusieurs confirmations sont nécessaires. L’original n’est remplacé qu’après vérification et s’il n’a pas changé. Une annulation ou un échec avant validation le laisse intact. Aucune ancienne clé Keystore n’est supprimée.</string>
+    <string name="credential_migration_success">Identifiant migré et vérifié.</string>
+    <string name="credential_migration_failed">Migration annulée, échouée ou identifiant modifié. La migration n’a pas remplacé l’original. Rechargez et réessayez, ou réimportez si l’ancienne clé de chiffrement est indisponible.</string>
+    <string name="backup_import_failed">Échec de l’importation ; aucun hôte ni groupe modifié. Vérifiez les noms en double, les clés SSH ou rebonds manquants et les données invalides. Les anciennes sauvegardes avec des ID de lignes de rebonds doivent être réexportées depuis l’installation source.</string>
+    <string name="backup_export_failed">Impossible d’exporter la sauvegarde. Vérifiez la destination, l’unicité des noms d’hôtes et de clés et tous les rebonds.</string>
+    <string name="backup_settings_import_failed">Hôtes importés (%1$d nouveaux, %2$d mis à jour), mais réglages de l’application non restaurés. Vérifiez vos réglages.</string>
+    <string name="connection_authorization_title">Autoriser la connexion SSH / SFTP</string>
+    <string name="connection_authorization_subtitle">Vérifiez votre identité avant la connexion</string>
+    <string name="credential_authorization_title">Autoriser l’identifiant SSH protégé</string>
+</resources>

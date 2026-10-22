@@ -5,14 +5,21 @@ import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.room.withTransaction
 import com.sshborg.R
 import androidx.lifecycle.viewModelScope
 import com.sshborg.SshBorgApp
 import com.sshborg.data.AppPreferences
 import com.sshborg.data.ExtraBar
 import com.sshborg.data.ExtraBarPresets
-import com.sshborg.data.KeystoreManager
+import com.sshborg.data.HostBackupEntry
+import com.sshborg.data.HostBackupImporter
+import com.sshborg.data.HostBackupPlan
+import com.sshborg.data.InvalidHostBackup
+import com.sshborg.data.createHostBackupPlan
+import com.sshborg.data.db.GroupEntity
 import com.sshborg.data.db.HostEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,9 +40,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             viewModelScope, SharingStarted.WhileSubscribed(5000),
             com.sshborg.data.AppPreferences.LOCK_NONE,
         )
-
-    val keystoreEncryption: StateFlow<Boolean> =
-        prefs.keystoreEncryption.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val confirmExit: StateFlow<Boolean> =
         prefs.confirmExit.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -106,9 +110,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     val lockTimeoutSeconds: StateFlow<Int> =
         prefs.lockTimeoutSeconds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 60)
-
-    private val _isMigrating = MutableStateFlow(false)
-    val isMigrating: StateFlow<Boolean> = _isMigrating
 
     private val _error = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val error: SharedFlow<String> = _error
@@ -213,38 +214,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { prefs.setExtraKeysBarPinned(enabled) }
     }
 
-    /** Encrypts all existing plain-text SSH keys and host passwords with Android Keystore. */
-    fun enableKeystoreEncryption() {
-        _isMigrating.value = true
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                keyDao.getAllOnce().forEach { key ->
-                    if (key.encryptedBlob == null && key.privateKeyPem.isNotBlank()) {
-                        val blob = KeystoreManager.encrypt(key.privateKeyPem)
-                        keyDao.upsert(key.copy(privateKeyPem = "", encryptedBlob = blob))
-                    }
-                }
-                hostDao.getAllOnce().forEach { host ->
-                    if (host.encryptedPassword == null && !host.password.isNullOrEmpty()) {
-                        val blob = KeystoreManager.encrypt(host.password)
-                        hostDao.upsert(host.copy(password = null, encryptedPassword = blob))
-                    }
-                }
-                prefs.setKeystoreEncryption(true)
-            }.onFailure { _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_encryption_failed)) }
-            _isMigrating.value = false
-        }
-    }
-
     fun exportHosts(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val hosts = hostDao.getAllOnce()
-                val groups = groupDao.getAllOnce()
-                val groupNameById = groups.associate { it.id to it.name }
-                // Export the key by name, not by local row id: the id is meaningless on
-                // another install, but a same-named key can be matched on import.
-                val keyLabelById = keyDao.getAllOnce().associate { it.id to it.label }
+                val (hosts, groups, keys) = sshBorgApp.db.withTransaction {
+                    Triple(hostDao.getAllOnce(), groupDao.getAllOnce(), keyDao.getAllOnce())
+                }
+                val plan = createHostBackupPlan(hosts, keys, groups)
                 val groupsArr = JSONArray()
                 groups.forEach { g ->
                     groupsArr.put(JSONObject().apply {
@@ -254,7 +230,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     })
                 }
                 val arr = JSONArray()
-                hosts.forEach { h ->
+                plan.hosts.forEach { entry ->
+                    val h = entry.metadata
                     arr.put(JSONObject().apply {
                         put("label", h.label)
                         put("hostname", h.hostname)
@@ -266,11 +243,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                         put("sftpShowHidden", h.sftpShowHidden)
                         put("allowLegacyCiphers", h.allowLegacyCiphers)
                         h.jumpHosts?.let { put("jumpHosts", it) }
-                        h.jumpHostIdList?.let { put("jumpHostIdList", it) }
+                        if (h.jumpMode == "host_list") put("jumpHostLabels", JSONArray(entry.jumpHostLabels.orEmpty()))
                         h.portForwardings?.let { put("portForwardings", it) }
                         h.sftpStartDir?.let { put("sftpStartDir", it) }
-                        h.keyId?.let { id -> keyLabelById[id]?.let { put("keyLabel", it) } }
-                        h.groupId?.let { gid -> groupNameById[gid]?.let { put("group", it) } }
+                        entry.keyLabel?.let { put("keyLabel", it) }
+                        entry.groupName?.let { put("group", it) }
                         h.color?.let { put("color", it) }
                         // Host list order (#16): without these a restore loses the manual
                         // arrangement and both usage-based orders start from scratch.
@@ -280,18 +257,19 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     })
                 }
                 val json = JSONObject().apply {
-                    put("version", 7)
+                    put("version", 8)
                     put("exported_at", java.time.Instant.now().toString())
                     put("groups", groupsArr)
                     put("hosts", arr)
                     put("settings", prefs.exportSettingsJson())
                 }.toString(2)
-                getApplication<Application>().contentResolver.openOutputStream(uri)?.use {
+                checkNotNull(getApplication<Application>().contentResolver.openOutputStream(uri)).use {
                     it.write(json.toByteArray(Charsets.UTF_8))
                 }
                 _message.tryEmit(getApplication<Application>().getString(R.string.backup_export_success, hosts.size))
             }.onFailure {
-                _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_unknown))
+                if (it is CancellationException) throw it
+                _error.tryEmit(getApplication<Application>().getString(R.string.backup_export_failed))
             }
         }
     }
@@ -304,50 +282,24 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     ?: throw IllegalStateException(getApplication<Application>().getString(R.string.error_unknown))
                 val root = JSONObject(jsonText)
 
-                // Groups (backup version >= 2): upsert by name, keeping existing IDs.
-                val groupIdByName = mutableMapOf<String, Long>()
-                root.optJSONArray("groups")?.let { groupsArr ->
-                    for (i in 0 until groupsArr.length()) {
+                val version = if (root.has("version")) root.get("version").toString().toIntOrNull() else 1
+                if (version == null || version !in 1..8) throw InvalidHostBackup()
+                val groups = root.optJSONArray("groups")?.let { groupsArr ->
+                    (0 until groupsArr.length()).map { i ->
                         val g = groupsArr.getJSONObject(i)
-                        val name = g.getString("name")
-                        val color = g.optInt("color", com.sshborg.data.db.GroupEntity.SWATCHES[0])
-                        val position = if (g.has("position")) g.getInt("position") else null
-                        val existing = groupDao.getByName(name)
-                        groupIdByName[name] =
-                            if (existing != null) {
-                                groupDao.upsert(existing.copy(color = color, position = existing.position ?: position)); existing.id
-                            } else {
-                                groupDao.upsert(com.sshborg.data.db.GroupEntity(name = name, color = color, position = position))
-                            }
+                        GroupEntity(name = g.getString("name"), color = g.optInt("color", GroupEntity.SWATCHES[0]),
+                            position = if (g.has("position")) g.getInt("position") else null)
                     }
-                }
-                suspend fun resolveGroupId(name: String?): Long? {
-                    if (name.isNullOrEmpty()) return null
-                    groupIdByName[name]?.let { return it }
-                    // Host references a group missing from the backup: recreate it.
-                    val existing = groupDao.getByName(name)
-                    val id = existing?.id ?: groupDao.upsert(
-                        com.sshborg.data.db.GroupEntity(name = name, color = com.sshborg.data.db.GroupEntity.SWATCHES[0])
-                    )
-                    groupIdByName[name] = id
-                    return id
-                }
-
-                // Match the exported key name to a local key: an id from another install is
-                // meaningless, but a key created with the same name here can be re-linked.
-                // A missing/unknown name resolves to null, so the host simply stays keyless.
-                val keyIdByLabel = keyDao.getAllOnce().associateBy({ it.label }, { it.id })
-
+                }.orEmpty()
                 val arr = root.getJSONArray("hosts")
                 val toImport = (0 until arr.length()).map { i ->
                     val o = arr.getJSONObject(i)
-                    HostEntity(
+                    HostBackupEntry(metadata = HostEntity(
                         id = 0,
                         label = o.getString("label"),
                         hostname = o.getString("hostname"),
-                        port = o.optInt("port", 22),
+                        port = if (o.has("port")) o.get("port").toString().toIntOrNull() ?: throw InvalidHostBackup() else 22,
                         username = o.getString("username"),
-                        keyId = o.optString("keyLabel").takeIf { it.isNotEmpty() }?.let { keyIdByLabel[it] },
                         password = null,
                         encryptedPassword = null,
                         knownHostsEntry = null,
@@ -362,84 +314,43 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                         sftpStartDir = o.optString("sftpStartDir").takeIf { it.isNotEmpty() },
                         sftpShowHidden = o.optBoolean("sftpShowHidden", false),
                         allowLegacyCiphers = o.optBoolean("allowLegacyCiphers", false),
-                        groupId = resolveGroupId(o.optString("group").takeIf { it.isNotEmpty() }),
                         color = if (o.has("color")) o.getInt("color") else null,
                         position = if (o.has("position")) o.getInt("position") else null,
                         connectCount = o.optInt("connectCount", 0),
+                    ),
+                        keyLabel = o.optString("keyLabel").takeIf { it.isNotEmpty() },
+                        groupName = o.optString("group").takeIf { it.isNotEmpty() },
+                        jumpHostLabels = if (o.has("jumpHostLabels")) o.getJSONArray("jumpHostLabels").let { labels ->
+                            (0 until labels.length()).map { labels.getString(it) }
+                        } else null,
                     )
                 }
-                val existingByLabel = hostDao.getAllOnce().associateBy { it.label }
-                var inserted = 0; var updated = 0
-                toImport.forEach { host ->
-                    val existing = existingByLabel[host.label]
-                    if (existing != null) {
-                        // Preserve the fields the backup never carries so re-importing over
-                        // an existing host doesn't wipe its credentials or saved state:
-                        // the password always stays, and so does local usage data (last
-                        // connection, counter, manual position) — the backup only fills in
-                        // what this install has never recorded. The key link is
-                        // kept too, but a host with no key adopts a same-named key resolved
-                        // from the backup (existing.keyId ?: host.keyId) — never overwriting
-                        // one already set, and never clearing it when the backup omits the name.
-                        //
-                        // Pinned host keys are kept only while the endpoint they were pinned
-                        // to is unchanged, mirroring the edit screen: a stored host key is a
-                        // TOFU anchor bound to a specific target, so if the import repoints
-                        // the host we drop it and re-verify on next connect instead of
-                        // carrying a stale pin (which would prompt forever on the main host,
-                        // or hard-fail a jump host). knownHostsEntry follows hostname+port;
-                        // jumpHostKeys (simple mode) follows the jumpHosts string.
-                        val keepHostKey  = existing.hostname == host.hostname && existing.port == host.port
-                        val keepJumpKeys = host.jumpMode == "simple" && existing.jumpHosts == host.jumpHosts
-                        hostDao.upsert(host.copy(
-                            id                = existing.id,
-                            keyId             = existing.keyId ?: host.keyId,
-                            password          = existing.password,
-                            encryptedPassword = existing.encryptedPassword,
-                            knownHostsEntry   = if (keepHostKey) existing.knownHostsEntry else null,
-                            jumpHostKeys      = if (keepJumpKeys) existing.jumpHostKeys else null,
-                            // Local usage data and manual position win when present; the
-                            // backup's values fill in only what this install doesn't have.
-                            lastConnected     = existing.lastConnected ?: host.lastConnected,
-                            connectCount      = maxOf(existing.connectCount, host.connectCount),
-                            position          = existing.position ?: host.position,
-                        ))
-                        updated++
-                    } else { hostDao.upsert(host); inserted++ }
+                val importer = HostBackupImporter(
+                    transaction = { block -> sshBorgApp.db.withTransaction { block() } },
+                    readHosts = hostDao::getAllOnce, readKeys = keyDao::getAllOnce, readGroups = groupDao::getAllOnce,
+                    writeHost = hostDao::upsert, writeGroup = groupDao::upsert,
+                )
+                val result = importer.restore(HostBackupPlan(groups, toImport))
+                // DataStore cannot share a Room transaction. Report partial settings failure
+                // accurately instead of claiming that the committed host import failed.
+                try {
+                    root.optJSONObject("settings")?.let { prefs.importSettingsJson(it) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    _error.tryEmit(getApplication<Application>().getString(
+                        R.string.backup_settings_import_failed, result.inserted, result.updated))
+                    return@launch
                 }
-                // App settings (backup version >= 3): applied reactively via DataStore.
-                root.optJSONObject("settings")?.let { prefs.importSettingsJson(it) }
-
                 _message.tryEmit(
-                    getApplication<Application>().getString(R.string.backup_import_success, inserted, updated)
+                    getApplication<Application>().getString(R.string.backup_import_success, result.inserted, result.updated)
                 )
             }.onFailure {
-                _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_unknown))
+                if (it is CancellationException) throw it
+                _error.tryEmit(getApplication<Application>().getString(R.string.backup_import_failed))
             }
         }
     }
 
-    /** Decrypts all SSH keys and host passwords back to plain-text and removes the Keystore key. */
-    fun disableKeystoreEncryption() {
-        _isMigrating.value = true
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                keyDao.getAllOnce().forEach { key ->
-                    if (key.encryptedBlob != null) {
-                        val pem = KeystoreManager.decrypt(key.encryptedBlob)
-                        keyDao.upsert(key.copy(privateKeyPem = pem, encryptedBlob = null))
-                    }
-                }
-                hostDao.getAllOnce().forEach { host ->
-                    if (host.encryptedPassword != null) {
-                        val pwd = KeystoreManager.decrypt(host.encryptedPassword)
-                        hostDao.upsert(host.copy(password = pwd, encryptedPassword = null))
-                    }
-                }
-                KeystoreManager.deleteKey()
-                prefs.setKeystoreEncryption(false)
-            }.onFailure { _error.tryEmit(it.message ?: getApplication<Application>().getString(R.string.error_decryption_failed)) }
-            _isMigrating.value = false
-        }
-    }
+
 }

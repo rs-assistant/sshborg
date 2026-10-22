@@ -8,7 +8,8 @@ import com.sshborg.SshBorgApp
 import com.sshborg.data.db.HostEntity
 import com.sshborg.data.ExtraBar
 import com.sshborg.data.ExtraBarPresets
-import com.sshborg.data.KeystoreManager
+import com.sshborg.data.ConnectionAuthorization
+import com.sshborg.data.ProtectedCredentials
 import com.sshborg.data.ssh.*
 import com.sshborg.service.SessionManager
 import com.sshborg.service.SshForegroundService
@@ -38,6 +39,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
     private val hostDao        = sshBorgApp.db.hostDao()
     private val keyDao         = sshBorgApp.db.sshKeyDao()
     private val prefs          = sshBorgApp.appPreferences
+    private val storedCredentials = StoredConnectionCredentials(keyDao::getById, ProtectedCredentials::decrypt)
 
     private var scrollbackLines = 2000
     init {
@@ -218,20 +220,67 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
             val host = hostDao.getById(hostId) ?: run {
                 _state.value = ConnectionState.Error(getApplication<Application>().getString(R.string.error_host_not_found)); return@launch
             }
-            var auth = buildAuth(host) ?: return@launch
-            var wrongPassword = false
-
+            val simpleJumpHosts = try {
+                if (host.jumpMode == "host_list") emptyList() else parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+            } catch (e: IllegalArgumentException) {
+                _state.value = ConnectionState.Error("Invalid jump host chain", e.message)
+                return@launch
+            }
+            // Authorize BEFORE reading or decrypting saved credentials.
+            var attemptGrant = ConnectionAuthorization.requireFreshAttempt()
+            if (attemptGrant == null) {
+                _state.value = ConnectionState.Error("SSH connection authorization was cancelled or unavailable")
+                return@launch
+            }
+            val initialAuth = runCatching { buildAuth(host) }
+                .onFailure { if (it is CancellationException) throw it }
+            if (initialAuth.isFailure) {
+                _state.value = ConnectionState.Error("Unable to unlock SSH credentials", initialAuth.exceptionOrNull()?.message)
+                return@launch
+            }
+            var auth = initialAuth.getOrNull() ?: run {
+                if (host.keyId != null) {
+                    _state.value = ConnectionState.Error("Selected SSH key is unavailable or not encrypted; re-import the key")
+                }
+                return@launch
+            }
             // Pre-load jump host entities for host-list mode so we can look them up in onHostKeyVerify
-            val jumpHostEntities = if (host.jumpMode == "host_list") {
-                buildJumpHostEntities(host.jumpHostIdList)
-            } else emptyList()
+            val jumpHostEntities = try {
+                if (host.jumpMode == "host_list") {
+                    resolveJumpHostEntities(host.jumpHostIdList, hostDao::getById)
+                } else emptyList()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.value = ConnectionState.Error("Invalid jump host chain", e.message)
+                return@launch
+            }
 
+            var firstAttempt = true
             while (true) {
+                // Password retry is a NEW SSH transport; require fresh authorization.
+                if (!firstAttempt) {
+                    attemptGrant = ConnectionAuthorization.requireFreshAttempt()
+                    if (attemptGrant == null) {
+                        _state.value = ConnectionState.Error("SSH connection authorization was cancelled or unavailable")
+                        return@launch
+                    }
+                }
+                firstAttempt = false
                 _state.value = ConnectionState.Connecting
 
                 val jumpHosts = if (host.jumpMode == "host_list") {
-                    jumpHostEntities.mapNotNull { jumpHost ->
-                        val jumpAuth = buildJumpAuth(jumpHost) ?: return@mapNotNull null
+                    jumpHostEntities.map { jumpHost ->
+                        val jumpResult = runCatching { storedCredentials.resolve(jumpHost) }
+                            .onFailure { if (it is CancellationException) throw it }
+                        if (jumpResult.isFailure) {
+                            _state.value = ConnectionState.Error("Unable to unlock jump host credentials", jumpResult.exceptionOrNull()?.message)
+                            return@launch
+                        }
+                        val jumpAuth = jumpResult.getOrNull() ?: run {
+                            _state.value = ConnectionState.Error("Jump host credentials unavailable")
+                            return@launch
+                        }
                         JumpHost(
                             host             = jumpHost.hostname,
                             port             = jumpHost.port,
@@ -242,10 +291,13 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 } else {
-                    parseJumpHosts(host.jumpHosts, host.jumpHostKeys)
+                    simpleJumpHosts
                 }
 
                 val result = runCatching {
+                    check(ConnectionAuthorization.consumeAttempt(checkNotNull(attemptGrant))) {
+                        "Connection authorization expired; retry while the app is in the foreground"
+                    }
                     SshManager.openShell(
                         params = SshConnectionParams(
                             hostname           = host.hostname,
@@ -270,21 +322,21 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                                     if (current != null) {
                                         if (hostname == host.hostname) {
                                             if (current.knownHostsEntry == null)
-                                                hostDao.upsert(current.copy(knownHostsEntry = keyLine))
+                                                hostDao.pinHostKeyIfAbsent(current.id, keyLine)
                                         } else if (host.jumpMode == "host_list") {
                                             // Host-list: persist key to the jump host's own entity
                                             val jumpEntity = jumpHostEntities.find { it.hostname == hostname }
                                             if (jumpEntity != null) {
                                                 val jCurrent = hostDao.getById(jumpEntity.id)
                                                 if (jCurrent != null && jCurrent.knownHostsEntry == null)
-                                                    hostDao.upsert(jCurrent.copy(knownHostsEntry = keyLine))
+                                                    hostDao.pinHostKeyIfAbsent(jCurrent.id, keyLine)
                                             }
                                         } else {
                                             // Simple mode: persist to target's jumpHostKeys blob
                                             val existing = current.jumpHostKeys
                                                 ?.lines()?.filter { it.isNotBlank() } ?: emptyList()
                                             if (keyLine !in existing)
-                                                hostDao.upsert(current.copy(jumpHostKeys = (existing + keyLine).joinToString("\n")))
+                                                hostDao.updateJumpHostKeys(current.id, current.jumpHostKeys, (existing + keyLine).joinToString("\n"))
                                         }
                                     }
                                 }
@@ -294,6 +346,7 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
 
+                result.onFailure { if (it is CancellationException) throw it }
                 val session = result.getOrNull()
                 if (session != null) {
                     shellSession = session
@@ -305,20 +358,20 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     val saved = hostDao.getById(hostId) ?: host
                     if (saved.knownHostsEntry == null)
-                        hostDao.upsert(saved.copy(knownHostsEntry = session.hostKeyLine))
+                        hostDao.pinHostKeyIfAbsent(saved.id, session.hostKeyLine)
                     // Simple mode: new jump keys → target's jumpHostKeys blob
                     if (session.newJumpHostKeyLines.isNotEmpty()) {
                         val current = hostDao.getById(hostId) ?: saved
                         val existing = current.jumpHostKeys?.lines()?.filter { it.isNotBlank() } ?: emptyList()
                         val toAdd = session.newJumpHostKeyLines.filter { it !in existing }
                         if (toAdd.isNotEmpty())
-                            hostDao.upsert(current.copy(jumpHostKeys = (existing + toAdd).joinToString("\n")))
+                            hostDao.updateJumpHostKeys(current.id, current.jumpHostKeys, (existing + toAdd).joinToString("\n"))
                     }
                     // Host-list mode: new jump keys → each jump host's own knownHostsEntry
                     for ((jumpHostId, keyLine) in session.newJumpHostKeyUpdates) {
                         val jCurrent = hostDao.getById(jumpHostId) ?: continue
                         if (jCurrent.knownHostsEntry == null)
-                            hostDao.upsert(jCurrent.copy(knownHostsEntry = keyLine))
+                            hostDao.pinHostKeyIfAbsent(jCurrent.id, keyLine)
                     }
                     hostDao.recordConnection(hostId, System.currentTimeMillis())
                     // A login that prints two lines leaves both of them under the title bar, and
@@ -369,49 +422,12 @@ class TerminalViewModel(app: Application) : AndroidViewModel(app) {
                msg.contains("authentication", ignoreCase = true)
     }
 
-    private suspend fun buildJumpHostEntities(idList: String?): List<HostEntity> {
-        if (idList.isNullOrBlank()) return emptyList()
-        return idList.split(",").mapNotNull { it.trim().toLongOrNull() }
-            .mapNotNull { hostDao.getById(it) }
-    }
-
-    /**
-     * Public-key auth for [host]. A stored key is always unlocked — an encrypted one is unlocked
-     * at import — so nothing has to be asked for here. Null when the host has no key, or its key
-     * cannot be read.
-     */
-    private suspend fun keyAuthFor(host: HostEntity): SshAuth.PublicKey? {
-        val key = host.keyId?.let { keyDao.getById(it) } ?: return null
-        val pem = KeystoreManager.getPrivateKeyPem(key) ?: return null
-        return SshAuth.PublicKey(pem)
-    }
-
-    /** Non-interactive auth for jump hosts — password must already be saved. */
-    private suspend fun buildJumpAuth(host: HostEntity): SshAuth? {
-        val keyAuth = keyAuthFor(host)
-        return when {
-            keyAuth != null -> keyAuth
-            !host.encryptedPassword.isNullOrEmpty() ->
-                runCatching { SshAuth.Password(KeystoreManager.decrypt(host.encryptedPassword)) }.getOrNull()
-            !host.password.isNullOrEmpty() -> SshAuth.Password(host.password)
-            else -> null
-        }
-    }
-
     private suspend fun buildAuth(host: HostEntity): SshAuth? {
-        val keyAuth = keyAuthFor(host)
-        return if (keyAuth != null) {
-            keyAuth
-        } else if (!host.encryptedPassword.isNullOrEmpty()) {
-            SshAuth.Password(KeystoreManager.decrypt(host.encryptedPassword))
-        } else if (!host.password.isNullOrEmpty()) {
-            SshAuth.Password(host.password)
-        } else {
-            _state.value = ConnectionState.PasswordPrompt(host.hostname)
-            val pwd = passwordResult.first()
-            if (pwd.isEmpty()) { _state.value = ConnectionState.Disconnected(); null }
-            else SshAuth.Password(pwd)
-        }
+        storedCredentials.resolve(host)?.let { return it }
+        _state.value = ConnectionState.PasswordPrompt(host.hostname)
+        val pwd = passwordResult.first()
+        if (pwd.isEmpty()) { _state.value = ConnectionState.Disconnected(); return null }
+        return SshAuth.Password(pwd)
     }
 
     private fun startReading(session: ShellSession) {

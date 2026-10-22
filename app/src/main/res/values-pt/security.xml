@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_reentry_required">A senha salva usava o formato antigo sem criptografia e não foi carregada. Digite-a novamente para salvá-la criptografada.</string>
+    <string name="host_key_required">Selecione uma chave SSH antes de salvar.</string>
+    <string name="host_save_failed">Não foi possível salvar este host. O editor permanece aberto para tentar novamente.</string>
+    <string name="keys_reimport_required">Importe esta chave novamente antes de usá-la</string>
+    <string name="host_jump_selection_invalid">Selecione ou remova cada host intermediário antes de salvar.</string>
+    <string name="host_jump_chain_invalid">Digite cada salto como [user@]host[:port], usando colchetes para IPv6, ou esvazie toda a cadeia.</string>
+    <string name="keys_save_failed">Não foi possível criptografar ou salvar a chave com segurança. Tente novamente.</string>
+    <string name="keys_generate_failed">Não foi possível gerar a chave. Confira as opções e tente novamente.</string>
+    <string name="credential_migration_title">Credenciais protegidas</string>
+    <string name="credential_auth_required">Obrigatório</string>
+    <string name="credential_migration_explanation">São necessários Android 11 ou posterior e autenticação do sistema com biometria forte ou PIN, padrão ou senha do dispositivo. Cada credencial salva, incluindo as dos hosts intermediários, precisa de confirmação própria. As credenciais antigas criptografadas abaixo devem ser migradas explicitamente ou importadas novamente antes do uso. Registros sem criptografia ou danificados precisam ser digitados ou importados novamente.</string>
+    <string name="credential_migration_key">Chave SSH criptografada antiga</string>
+    <string name="credential_migration_password">Senha de host criptografada antiga</string>
+    <string name="credential_migration_action">Migrar</string>
+    <string name="credential_migration_confirm_title">Migrar %1$s?</string>
+    <string name="credential_migration_confirm_body">Somente esta credencial será migrada. Confirme a autenticação do sistema para ler a credencial antiga, criptografá-la com a chave protegida e descriptografá-la novamente para verificação. São necessárias várias confirmações. O original só é substituído após a verificação e se não tiver mudado. Cancelamentos ou falhas antes da confirmação final o mantêm intacto. Nenhuma chave antiga do Keystore é excluída.</string>
+    <string name="credential_migration_success">Credencial migrada e verificada.</string>
+    <string name="credential_migration_failed">Migração cancelada, com falha ou credencial alterada. A migração não substituiu o original. Recarregue e tente novamente, ou importe de novo se a chave de criptografia antiga estiver indisponível.</string>
+    <string name="backup_import_failed">A importação falhou; nenhum host ou grupo foi alterado. Confira nomes duplicados, chaves SSH ou saltos ausentes e dados inválidos. Backups antigos com IDs de linhas dos hosts intermediários devem ser exportados novamente na instalação de origem.</string>
+    <string name="backup_export_failed">Não foi possível exportar o backup. Confira o destino, a exclusividade dos nomes de hosts e chaves e todos os saltos configurados.</string>
+    <string name="backup_settings_import_failed">Hosts importados (%1$d novos, %2$d atualizados), mas as configurações do app não foram restauradas. Confira as configurações.</string>
+    <string name="connection_authorization_title">Autorizar conexão SSH / SFTP</string>
+    <string name="connection_authorization_subtitle">Verifique sua identidade antes de conectar</string>
+    <string name="credential_authorization_title">Autorizar credencial SSH protegida</string>
+</resources>

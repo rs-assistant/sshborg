@@ -26,6 +26,10 @@ test.properties
 # Kotlin
 .kotlin/
 
+# Python test and release helpers
+__pycache__/
+*.py[cod]
+
 # MacOS
 .DS_Store
 

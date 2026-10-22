@@ -362,7 +362,7 @@
     <string name="error_encryption_failed">Cifragem falhada</string>
     <string name="error_decryption_failed">Decifragem falhada</string>
     <string name="settings_backup_export_title">Exportar cópia</string>
-    <string name="settings_backup_export_subtitle">Salvar as configurações dos hosts e as configurações do app em um arquivo JSON. Senhas e chaves não são incluídas.</string>
+    <string name="settings_backup_export_subtitle">Salvar hosts e configurações como JSON no formato 8, sem senhas e chaves. Restaure somente em uma versão compatível com o formato 8.</string>
     <string name="settings_backup_export_action">Exportar</string>
     <string name="settings_backup_import_title">Importar cópia</string>
     <string name="settings_backup_import_subtitle">Carregar as configurações dos hosts e as configurações do app de um arquivo JSON. Hosts existentes com o mesmo nome serão atualizados; senhas e chaves não serão importadas.</string>
