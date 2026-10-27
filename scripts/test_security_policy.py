@@ -86,6 +86,15 @@ class SecurityPolicyTest(unittest.TestCase):
                 resources["values-ja"].append(("credential_migration_action", value))
             self.assertTrue(check_resources(resources))
 
+    def test_signing_cannot_be_removed_or_exposed_to_build_and_pr_jobs(self):
+        for old, new in (("python3 scripts/sign_tablet_bundle.py tablet-test", "REMOVED"),
+                         ("vars.TABLET_TEST_CERT_SHA256", "vars.OTHER"),
+                         ("secrets.TABLET_TEST_KEYSTORE_B64", "secrets.OTHER"),
+                         ("secrets.TABLET_TEST_STORE_PASSWORD", "secrets.OTHER"),
+                         ("jobs:\n", "jobs:\n  # secrets.TABLET_TEST_KEYSTORE_B64\n")):
+            with self.subTest(old=old):
+                self.assertTrue(self.mutated("workflow", old, new))
+
     def test_duplicate_resource_is_detected(self):
         resources = {locale: list(entries) for locale, entries in self.resources.items()}
         resources["values-de"].append(("credential_migration_action", "duplicate"))

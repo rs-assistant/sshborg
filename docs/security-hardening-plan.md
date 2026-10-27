@@ -214,4 +214,9 @@ non-test branch, PR event, failed/skipped tests, failed upload, or digest mismat
 The earlier empty distribution draft can be repurposed only while still empty and unpublished;
 an already published or modified release is left alone. Tags identify the actual CI-built commit,
 not the old local-worktree build's base. The ten Python safeguard tests use a fake API and never
-contact GitHub. Debug signing keys are CI-specific; this does not produce a production-signed APK.
+contact GitHub. Earlier prereleases used CI-specific debug keys. New manual publications require
+the dedicated fixed test key and public certificate pin described in
+[tablet-test signing](tablet-test-signing.md); ordinary build artifacts still use ephemeral debug
+keys. The user reported signing configuration and backup complete on 2026-10-27; the manual
+publisher must verify it. Two-version device update acceptance remains outstanding.
+This does not produce a production-signed APK or make earlier mismatched signers compatible.

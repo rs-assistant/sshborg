@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from xml.etree import ElementTree
@@ -99,6 +100,36 @@ def gh_api(endpoint, data=None):
     return json.loads(result.stdout)
 
 
+def certificate_pin(env):
+    pin = env.get("TABLET_TEST_CERT_SHA256", "").lower().replace(":", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", pin):
+        raise ValueError("Configure the public TABLET_TEST_CERT_SHA256 certificate pin")
+    return pin
+
+
+def verify_apk_certificate(apk, env):
+    pin = certificate_pin(env)
+    tool = env.get("APKSIGNER")
+    if not tool:
+        raise ValueError("APKSIGNER must identify the Android SDK verifier")
+    try:
+        result = subprocess.run([tool, "verify", "--print-certs", str(apk)],
+                                capture_output=True, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as from_error:
+        raise ValueError("APK signature verification failed") from from_error
+    certificates = re.findall(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", result.stdout)
+    if not certificates or {value.lower() for value in certificates} != {pin}:
+        raise ValueError("APK signer does not match the pinned tablet-test certificate")
+
+
+def require_stable_signing(root, info, env):
+    pin = certificate_pin(env)
+    if info.get("signing") != {"kind": "stable-tablet-test", "certificate_sha256": pin}:
+        raise ValueError("The bundle must have verified stable tablet-test signing")
+    for name in APKS:
+        verify_apk_certificate(root / name, env)
+
+
 def release_notes(info, checksums, env):
     date = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d")
     return date, f"""Android 11+ 平板驗收測試版。僅供測試，尚未完成真機驗收；請勿使用重要憑證或正式伺服器帳密。
@@ -110,13 +141,16 @@ def release_notes(info, checksums, env):
 不要提供 PIN、私鑰或帳密，也不要停用 Play Protect。
 
 嚴格 ON_STOP 拒絕規則仍保留；某些裝置切換 PIN 畫面時可能被拒絕，請回報畫面錯誤，不要繞過認證。
-這是獨立的 debug 套件 com.sshborg.debug，不是正式發行版。CI 的 debug 簽章可能因建置而變更。
+這是獨立的 debug 套件 com.sshborg.debug，不是正式發行版。測試版使用固定專用簽章。
+先前使用隨機 CI 簽章的版本不能直接覆蓋更新；請勿為了安裝而解除安裝或清除資料。
+之後僅同套件、相同簽章且版本碼未降低的測試 APK 才符合保留資料更新的必要條件，仍需實機驗證。
 另一份 app-debug-androidTest.apk 是供日後 ADB 驗收使用，平板手動測試不需要安裝它。
 
 JVM／loopback SSH/SFTP：{info['jvm']['tests']} 項通過，零失敗、零跳過。Android 裝置測試僅編譯，尚未執行。
 來源提交：{info['commit']}
 建置紀錄：https://github.com/{REPO}/actions/runs/{env['GITHUB_RUN_ID']}
 APK SHA-256：{checksums[APKS[0]]}
+測試簽章 SHA-256：{info['signing']['certificate_sha256']}
 完整校驗碼與建置資訊見 SHA256SUMS、build-info.json 附件。
 """
 
@@ -124,6 +158,7 @@ APK SHA-256：{checksums[APKS[0]]}
 def publish(root, env, api=gh_api, upload=None):
     require_dispatch(env)
     info, checksums = verify_bundle(root, env)
+    require_stable_signing(root, info, env)
     tag = f"tablet-test-{env['GITHUB_RUN_ID']}-{env['GITHUB_RUN_ATTEMPT']}"
     date, notes = release_notes(info, checksums, env)
     endpoint = f"repos/{REPO}/releases"

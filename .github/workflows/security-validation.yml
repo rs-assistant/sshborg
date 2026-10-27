@@ -103,7 +103,29 @@ jobs:
         with:
           name: sshborg-hardened-debug
           path: tablet-test
+      - name: Set up signing JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up signing Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: Install signing tools
+        run: sdkmanager --channel=3 "build-tools;37.0.0"
+      - name: Re-sign with the pinned tablet-test key
+        env:
+          TABLET_TEST_KEYSTORE_B64: ${{ secrets.TABLET_TEST_KEYSTORE_B64 }}
+          TABLET_TEST_STORE_PASSWORD: ${{ secrets.TABLET_TEST_STORE_PASSWORD }}
+          TABLET_TEST_CERT_SHA256: ${{ vars.TABLET_TEST_CERT_SHA256 }}
+        run: |
+          export APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          python3 scripts/sign_tablet_bundle.py tablet-test
       - name: Publish verified prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/tablet_release.py publish tablet-test
+          TABLET_TEST_CERT_SHA256: ${{ vars.TABLET_TEST_CERT_SHA256 }}
+        run: |
+          export APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          python3 scripts/tablet_release.py publish tablet-test

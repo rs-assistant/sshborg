@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import tablet_release as release
 
@@ -14,9 +16,15 @@ class TabletReleaseTest(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.env = dict(GITHUB_EVENT_NAME="workflow_dispatch", GITHUB_REF=release.BRANCH,
                         GITHUB_REPOSITORY=release.REPO, GITHUB_SHA="a" * 40,
-                        GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1")
+                        GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1",
+                        TABLET_TEST_CERT_SHA256="b" * 64, APKSIGNER="fixture-apksigner")
         self.info = dict(commit="a" * 40, run_id="123", run_attempt="1",
-                         jvm=dict(tests=179, failures=0, errors=0, skipped=0), device_acceptance="NOT EXECUTED")
+                         jvm=dict(tests=179, failures=0, errors=0, skipped=0), device_acceptance="NOT EXECUTED",
+                         signing=dict(kind="stable-tablet-test", certificate_sha256="b" * 64))
+        self.verifier = patch("tablet_release.subprocess.run", return_value=SimpleNamespace(
+            stdout="Signer #1 certificate SHA-256 digest: " + "b" * 64))
+        self.mock_verifier = self.verifier.start()
+        self.addCleanup(self.verifier.stop)
         for name in release.APKS:
             (self.root / name).write_bytes(b"disposable test fixture")
         self.write_info()
@@ -91,6 +99,29 @@ class TabletReleaseTest(unittest.TestCase):
             self.publish()
         self.assertEqual([], self.publications)
 
+    def test_missing_or_forged_signing_metadata_cannot_publish(self):
+        for signing in (None, dict(kind="stable-tablet-test", certificate_sha256="c" * 64)):
+            self.info["signing"] = signing
+            self.write_info()
+            with self.assertRaises(ValueError):
+                self.publish()
+        self.assertEqual([], self.calls)
+
+    def test_actual_apk_certificates_must_match_the_configured_pin(self):
+        for stdout in ("", "certificate SHA-256 digest: " + "c" * 64,
+                       "certificate SHA-256 digest: " + "b" * 64 +
+                       "\ncertificate SHA-256 digest: " + "c" * 64):
+            self.mock_verifier.return_value.stdout = stdout
+            with self.assertRaises(ValueError):
+                self.publish()
+        self.assertEqual([], self.calls)
+
+    def test_missing_certificate_pin_cannot_publish(self):
+        del self.env["TABLET_TEST_CERT_SHA256"]
+        with self.assertRaises(ValueError):
+            self.publish()
+        self.assertEqual([], self.calls)
+
     def test_published_old_release_is_never_updated(self):
         self.old_published = True
         self.publish()
@@ -118,6 +149,8 @@ class TabletReleaseTest(unittest.TestCase):
         self.assertIn(self.env["GITHUB_SHA"], notes)
         self.assertIn("尚未完成真機驗收", notes)
         self.assertIn(checksums[release.APKS[0]], notes)
+        self.assertIn(self.env["TABLET_TEST_CERT_SHA256"], notes)
+        self.assertIn("請勿為了安裝而解除安裝或清除資料", notes)
 
 
 if __name__ == "__main__":

@@ -117,6 +117,13 @@ def check_sources(sources):
             "needs: build-and-test" in publish and
             "github.event_name == 'workflow_dispatch' && inputs.publish_tablet_test" in publish and
             "github.ref == 'refs/heads/security/harden-credential-storage'" in publish)
+    require("signing secrets are isolated from build and PR jobs", "secrets." not in before_publish and
+            "secrets.TABLET_TEST_KEYSTORE_B64" in publish and
+            "secrets.TABLET_TEST_STORE_PASSWORD" in publish)
+    require("stable signing precedes publication with a configured public pin",
+            "vars.TABLET_TEST_CERT_SHA256" in publish and
+            0 <= publish.find("python3 scripts/sign_tablet_bundle.py tablet-test") <
+            publish.find("python3 scripts/tablet_release.py publish tablet-test"))
     return errors
 
 

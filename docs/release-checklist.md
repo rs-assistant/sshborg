@@ -6,6 +6,11 @@ exist. Every one of them is here because it was forgotten once.
 Two rules stand above the list: **nothing is pushed or uploaded without asking**, and a step that
 was skipped is said out loud rather than left to be discovered on a store.
 
+For this branch's manually published debug tablet tests (not the production train below),
+follow [fixed tablet-test signing](tablet-test-signing.md). The dedicated signing secrets and
+public certificate pin must be configured first; missing/mismatched keys must stop publication.
+Do not uninstall an earlier differently signed test app to bypass an update failure.
+
 ## 1. Before the train
 
 - [ ] Everything to ship is merged into `V1_DEV` and has been tried on the phone by the person
