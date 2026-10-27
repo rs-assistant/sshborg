@@ -1,10 +1,15 @@
 # 固定測試簽章與更新
 
-狀態：CI 支援與本機驗證已實作。使用者於 2026-10-27 回報已完成金鑰設定與備份，
-接續提交、推送並由手動發布流程驗證設定。代理程式列出 Actions Secrets／Variables
-的 API 權限仍回覆 403，不讀取秘密值，也不自行產生或替換永久金鑰。
-實際固定簽章交付結果以對應的 GitHub Actions run、release 與公開憑證指紋為準；
-使用者回報已設定不等於 CI 已驗證或實機更新驗收通過。
+狀態：使用者於 2026-10-27 回報完成金鑰設定與備份，固定簽章的第一版已完成 CI
+建置、重簽與發布；公開附件亦已下載核對。代理程式未讀取秘密值，未產生或替換永久金鑰。
+
+- 來源：`b409ddd305d00f9ebef27ee37a6d9453ecca2385`。
+- [成功的 Actions run 40452951192](https://github.com/rs-assistant/sshborg/actions/runs/40452951192)。
+- [固定簽章測試版 tablet-test-40452951192-1](https://github.com/rs-assistant/sshborg/releases/tag/tablet-test-40452951192-1)。
+- 公開憑證 SHA-256：`6d4f788a0372e13511d53868d8f62b1a83f228556db749f0578782e72827ddca`。
+- app APK SHA-256：`82f09a6fa81be899797d871ee04d9797cb28d3ceb1c33ad32ac033dee3ff4d31`。
+
+上述結果不是兩版本裝置更新或 Keystore 實機驗收通過的證明。
 
 ## 相容性與資料邊界
 
@@ -63,6 +68,8 @@ keytool -list -v -keystore tablet-test.p12 -alias sshborg-tablet-test
 
 - 一般 push／PR 維持無秘密的 Gradle 建置、測試及臨時 debug 簽章；其 build artifact
   不是可延續更新的固定簽章測試版。不要拿它覆蓋已安裝的固定簽章版本。
+- 本次新增的 CI 回歸步驟以可拋棄金鑰驗證兩批實際 APK 的重簽延續、錯誤指紋拒絕與
+  篡改拒絕，未部署到遠端前不應宣稱已在 CI 執行；此步驟不接觸 repo 簽署 Secrets。
 - 只有指定測試分支的手動 `publish_tablet_test=true` 才進入獨立 publisher job。
   金鑰在全部 Gradle／測試完成之後才出現，不會提供給 PR、Gradle daemon 或建置 cache。
 - publisher 先核對來源 commit／run、零失敗／零跳過與原附件 checksum，再在 runner
@@ -74,10 +81,25 @@ keytool -list -v -keystore tablet-test.p12 -alias sshborg-tablet-test
 - 固定金鑰的第一版與第二版都發布後，需比較憑證並在專用裝置測試保留資料更新。
   Secrets 配置完成、本機重簽成功或 CI 成功都不等同這項實機驗收。
 
-目前不修改或覆蓋既有 release；管理者完成 Secrets／Variable 設定及必要的資料保留決策後，
-再提交、推送並執行獲授權的測試發布。
+不修改或覆蓋既有 release；每次新的測試發布仍需使用者當次授權。
 
-## 本機驗證紀錄
+## 可重跑的非裝置簽章驗證
+
+先以 disposable fixture runner 執行完整 JVM suite，並建置兩份 debug APK：
+
+```sh
+python3 scripts/run-local-security-tests.py
+./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+python3 scripts/check_tablet_signing.py --apksigner "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+```
+
+需 JDK 的 `keytool` 在 PATH；可用 `--keytool` 指定。腳本只使用剛建置的 APK、
+通過的 JVM XML reports 與可拋棄 fixture 身分，不連線 GitHub、不發布或安裝 APK。
+兩批均驗證 app／device-test signer、checksum、來源 metadata 不變、暫存清理與無多餘附件，
+並實際測試錯誤 pin、缺少設定，以及兩份 APK 被修改後簽章驗證必須失敗。
+這是重新封裝回歸，不是兩個不同來源版本的 Android 覆蓋安裝驗收。
+
+## 固定簽章實作當時的本機驗證紀錄
 
 - 38 項 Python safeguards／signing tests 通過，零失敗、零跳過；靜態政策檢查通過。
 - 使用 JDK keytool 產生兩天有效期的可拋棄測試金鑰，對兩批實際 app 與 device-test APK

@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">Сохранённый пароль останется без изменений. Чтобы заменить его, введите новый пароль.</string>
+    <string name="host_password_remove_saved">Удалить сохранённый пароль</string>
+    <string name="host_password_removal_pending">Сохранённый пароль будет удалён при сохранении.</string>
+    <string name="host_load_failed">Не удалось загрузить этот хост. Откройте редактор заново и повторите попытку.</string>
     <string name="host_password_reentry_required">Сохранённый пароль был записан открытым текстом в старом формате и не загружен. Введите его снова для сохранения в зашифрованном виде.</string>
     <string name="host_key_required">Перед сохранением выберите SSH-ключ.</string>
     <string name="host_save_failed">Не удалось сохранить хост. Редактор остаётся открытым для повторной попытки.</string>

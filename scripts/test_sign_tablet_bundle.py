@@ -2,19 +2,32 @@
 
 import base64
 import json
+import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import sign_tablet_bundle as signing
+from check_tablet_signing import expect_refusal
 import tablet_release as release
 
 
 class TabletSigningTest(unittest.TestCase):
+    def test_real_signing_check_cannot_pass_when_refusal_is_removed(self):
+        with self.assertRaises(RuntimeError):
+            expect_refusal(lambda: None, "fixture unexpectedly accepted")
+
+    def test_real_signing_check_does_not_count_unrelated_errors_as_refusals(self):
+        def broken_fixture():
+            raise OSError("disposable fixture failure")
+        with self.assertRaises(OSError):
+            expect_refusal(broken_fixture, "fixture unavailable")
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="tablet-signing-test-")
         self.addCleanup(self.tmp.cleanup)
@@ -125,6 +138,27 @@ class TabletSigningTest(unittest.TestCase):
         with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, ["fixture-apksigner"])):
             with self.assertRaises(ValueError):
                 release.verify_apk_certificate(self.root / release.APKS[0], self.env)
+
+    def test_cli_failure_does_not_print_secret_values_or_tool_output(self):
+        tool = Path(self.tmp.name) / "fixture-signer"
+        tool.write_text(
+            "#!/usr/bin/env python3\nimport os, sys\n"
+            "print(os.environ['TABLET_TEST_STORE_PASSWORD'], file=sys.stderr)\n"
+            "print('fixture signer diagnostic', file=sys.stderr)\nsys.exit(1)\n")
+        tool.chmod(0o700)
+        for encoded in ("disposable-secret-marker!", self.env["TABLET_TEST_KEYSTORE_B64"]):
+            with self.subTest(encoded_valid=encoded == self.env["TABLET_TEST_KEYSTORE_B64"]):
+                env = {**os.environ, **self.env, "TABLET_TEST_KEYSTORE_B64": encoded, "APKSIGNER": str(tool)}
+                result = subprocess.run([sys.executable, signing.__file__, str(self.root)],
+                                        env=env, capture_output=True, text=True)
+                self.assertEqual(1, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertIn("Tablet-test signing failed", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertNotIn("fixture signer diagnostic", result.stderr)
+                for value in (encoded, env["TABLET_TEST_STORE_PASSWORD"]):
+                    self.assertNotIn(value, result.stderr)
+                self.assert_original()
 
 
 if __name__ == "__main__":

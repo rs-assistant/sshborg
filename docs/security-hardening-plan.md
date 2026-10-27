@@ -6,6 +6,8 @@ records require explicit, individually verified migration in Settings. No record
 on startup. A test prerelease is available; do not merge or ship a production release until the
 remaining device/security checks pass. See [the 2026-10-22 follow-up review](security-review-2026-10-22.md)
 for subsequent fixes and validation, and [backup safety](backup-safety.md) for format 8 compatibility.
+The [2026-10-27 non-device validation](non-device-validation-2026-10-27.md) records subsequent
+local signing-regression coverage, build/test results, fixed translation lint errors, and remaining warnings.
 
 ## Threat model
 A local attacker with an unlocked phone or an application bypass must not initiate a new SSH/SFTP connection without a fresh Android biometric or device-credential confirmation. Authentication of a UI screen is insufficient if ViewModel methods can still connect independently.
@@ -213,10 +215,13 @@ publishes it without marking it latest. No attachment is overwritten. A mismatch
 non-test branch, PR event, failed/skipped tests, failed upload, or digest mismatch cannot publish.
 The earlier empty distribution draft can be repurposed only while still empty and unpublished;
 an already published or modified release is left alone. Tags identify the actual CI-built commit,
-not the old local-worktree build's base. The ten Python safeguard tests use a fake API and never
+not the old local-worktree build's base. Python publication safeguard tests use a fake API and never
 contact GitHub. Earlier prereleases used CI-specific debug keys. New manual publications require
 the dedicated fixed test key and public certificate pin described in
 [tablet-test signing](tablet-test-signing.md); ordinary build artifacts still use ephemeral debug
-keys. The user reported signing configuration and backup complete on 2026-10-27; the manual
-publisher must verify it. Two-version device update acceptance remains outstanding.
+keys. Fixed-key configuration was verified by successful manual run `40452951192` on 2026-10-27;
+release `tablet-test-40452951192-1` is the first fixed-signer delivery. Public attachments were
+downloaded and their checksums and both APK signatures verified; details are in the signing guide.
+The added secret-free real-APK signing regression is locally validated and awaits a future CI run.
+Two-version device update acceptance remains outstanding.
 This does not produce a production-signed APK or make earlier mismatched signers compatible.

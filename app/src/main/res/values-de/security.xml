@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">Das gespeicherte Passwort bleibt erhalten. Gib ein neues Passwort ein, um es zu ersetzen.</string>
+    <string name="host_password_remove_saved">Gespeichertes Passwort entfernen</string>
+    <string name="host_password_removal_pending">Das gespeicherte Passwort wird beim Speichern entfernt.</string>
+    <string name="host_load_failed">Dieser Host konnte nicht geladen werden. Öffne den Editor erneut und versuche es noch einmal.</string>
     <string name="host_password_reentry_required">Das gespeicherte Passwort lag im alten Klartextformat vor und wurde nicht geladen. Geben Sie es erneut ein, um es verschlüsselt zu speichern.</string>
     <string name="host_key_required">Wählen Sie vor dem Speichern einen SSH-Schlüssel.</string>
     <string name="host_save_failed">Der Host konnte nicht gespeichert werden. Der Editor bleibt für einen neuen Versuch geöffnet.</string>

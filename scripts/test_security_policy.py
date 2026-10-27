@@ -87,13 +87,24 @@ class SecurityPolicyTest(unittest.TestCase):
             self.assertTrue(check_resources(resources))
 
     def test_signing_cannot_be_removed_or_exposed_to_build_and_pr_jobs(self):
-        for old, new in (("python3 scripts/sign_tablet_bundle.py tablet-test", "REMOVED"),
+        for old, new in (("python3 scripts/check_tablet_signing.py --apksigner", "REMOVED"),
+                         ("lintDebug assembleDebug", "assembleDebug"),
+                         ("python3 scripts/sign_tablet_bundle.py tablet-test", "REMOVED"),
                          ("vars.TABLET_TEST_CERT_SHA256", "vars.OTHER"),
                          ("secrets.TABLET_TEST_KEYSTORE_B64", "secrets.OTHER"),
                          ("secrets.TABLET_TEST_STORE_PASSWORD", "secrets.OTHER"),
                          ("jobs:\n", "jobs:\n  # secrets.TABLET_TEST_KEYSTORE_B64\n")):
             with self.subTest(old=old):
                 self.assertTrue(self.mutated("workflow", old, new))
+
+    def test_host_password_state_and_load_error_translations_are_required(self):
+        for key in ("host_password_keep_saved", "host_password_remove_saved",
+                    "host_password_removal_pending", "host_load_failed"):
+            for locale in self.resources:
+                with self.subTest(key=key, locale=locale):
+                    resources = {name: list(entries) for name, entries in self.resources.items()}
+                    resources[locale] = [(name, text) for name, text in resources[locale] if name != key]
+                    self.assertTrue(check_resources(resources))
 
     def test_duplicate_resource_is_detected(self):
         resources = {locale: list(entries) for locale, entries in self.resources.items()}

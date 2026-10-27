@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">La password salvata verrà mantenuta. Inserisci una nuova password per sostituirla.</string>
+    <string name="host_password_remove_saved">Rimuovi la password salvata</string>
+    <string name="host_password_removal_pending">La password salvata verrà rimossa al salvataggio.</string>
+    <string name="host_load_failed">Impossibile caricare questo host. Riapri l’editor per riprovare.</string>
     <string name="host_password_reentry_required">La password salvata usava il vecchio formato in chiaro e non è stata caricata. Inseriscila di nuovo per salvarla cifrata.</string>
     <string name="host_key_required">Seleziona una chiave SSH prima di salvare.</string>
     <string name="host_save_failed">Impossibile salvare questo host. L’editor rimane aperto per riprovare.</string>

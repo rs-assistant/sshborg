@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">A senha salva será mantida. Digite uma nova senha para substituí-la.</string>
+    <string name="host_password_remove_saved">Remover a senha salva</string>
+    <string name="host_password_removal_pending">A senha salva será removida ao salvar.</string>
+    <string name="host_load_failed">Não foi possível carregar este host. Abra o editor novamente para tentar de novo.</string>
     <string name="host_password_reentry_required">A senha salva usava o formato antigo sem criptografia e não foi carregada. Digite-a novamente para salvá-la criptografada.</string>
     <string name="host_key_required">Selecione uma chave SSH antes de salvar.</string>
     <string name="host_save_failed">Não foi possível salvar este host. O editor permanece aberto para tentar novamente.</string>

@@ -30,6 +30,7 @@ FILES = {
 LOCALES = ("values", "values-de", "values-es", "values-fr", "values-it", "values-ja",
            "values-pt", "values-ru", "values-uk", "values-zh-rCN")
 SECURITY_STRINGS = {
+    "host_password_keep_saved", "host_password_remove_saved", "host_password_removal_pending", "host_load_failed",
     "host_password_reentry_required", "host_key_required", "host_save_failed",
     "keys_reimport_required", "host_jump_selection_invalid", "host_jump_chain_invalid",
     "keys_save_failed", "keys_generate_failed", "credential_migration_title",
@@ -113,6 +114,10 @@ def check_sources(sources):
     before_publish, separator, publish = s["workflow"].partition("\n  publish-tablet-test:\n")
     require("build has read-only repository permissions", "permissions:\n  contents: read" in before_publish and
             "contents: write" not in before_publish)
+    require("real APK signing regression runs in the secret-free build job",
+            "python3 scripts/check_tablet_signing.py --apksigner" in before_publish)
+    require("Android lint remains enabled before artifact publication",
+            "./gradlew --no-daemon lintDebug assembleDebug assembleDebugAndroidTest" in before_publish)
     require("prerelease is opt-in and build-gated", bool(separator) and "default: false" in before_publish and
             "needs: build-and-test" in publish and
             "github.event_name == 'workflow_dispatch' && inputs.publish_tablet_test" in publish and

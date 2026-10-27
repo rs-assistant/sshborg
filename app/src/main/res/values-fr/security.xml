@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">Le mot de passe enregistré sera conservé. Saisissez un nouveau mot de passe pour le remplacer.</string>
+    <string name="host_password_remove_saved">Supprimer le mot de passe enregistré</string>
+    <string name="host_password_removal_pending">Le mot de passe enregistré sera supprimé lors de l’enregistrement.</string>
+    <string name="host_load_failed">Impossible de charger cet hôte. Rouvrez l’éditeur pour réessayer.</string>
     <string name="host_password_reentry_required">Le mot de passe enregistré utilisait l’ancien stockage en clair et n’a pas été chargé. Saisissez-le à nouveau pour le conserver chiffré.</string>
     <string name="host_key_required">Sélectionnez une clé SSH avant d’enregistrer.</string>
     <string name="host_save_failed">Impossible d’enregistrer cet hôte. L’éditeur reste ouvert pour réessayer.</string>

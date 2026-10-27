@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">保存済みのパスワードは保持されます。置き換えるには、新しいパスワードを入力してください。</string>
+    <string name="host_password_remove_saved">保存済みのパスワードを削除</string>
+    <string name="host_password_removal_pending">保存時に、保存済みのパスワードが削除されます。</string>
+    <string name="host_load_failed">このホストを読み込めませんでした。編集画面を開き直して再試行してください。</string>
     <string name="host_password_reentry_required">保存済みパスワードは旧形式の平文保存のため読み込みませんでした。暗号化して保存するには再入力してください。</string>
     <string name="host_key_required">保存する前に SSH 鍵を選択してください。</string>
     <string name="host_save_failed">ホストを保存できませんでした。編集画面は開いたままなので再試行できます。</string>

@@ -52,8 +52,10 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/sshborg-security-tests"
           "$RUNNER_TEMP/sshborg-security-tests/bin/python" -m pip install -r scripts/requirements-security-tests.txt
           "$RUNNER_TEMP/sshborg-security-tests/bin/python" scripts/run-local-security-tests.py
-      - name: Compile debug and device-test APKs
-        run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+      - name: Lint and compile debug and device-test APKs
+        run: ./gradlew --no-daemon lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Regression-test real APK signing without repository secrets
+        run: python3 scripts/check_tablet_signing.py --apksigner "$ANDROID_HOME/build-tools/37.0.0/apksigner"
       - name: Inspect merged debug manifest
         run: |
           python3 - <<'PY'

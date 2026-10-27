@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="host_password_keep_saved">将保留已保存的密码。输入新密码可将其替换。</string>
+    <string name="host_password_remove_saved">移除已保存的密码</string>
+    <string name="host_password_removal_pending">保存时将移除已保存的密码。</string>
+    <string name="host_load_failed">无法加载此主机。请重新打开编辑界面后重试。</string>
     <string name="host_password_reentry_required">已保存的密码使用旧版明文存储，未被加载。请重新输入，以加密保存。</string>
     <string name="host_key_required">保存前请选择 SSH 密钥。</string>
     <string name="host_save_failed">无法保存此主机。编辑器保持打开，可重试。</string>
