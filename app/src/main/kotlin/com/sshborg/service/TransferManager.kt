@@ -64,7 +64,7 @@ data class BackgroundTransfer(
 class TransferManager(private val app: Application) {
 
     val downloadFolder =
-        "${Environment.DIRECTORY_DOWNLOADS}/SSHBorg${if (BuildConfig.DEBUG) "-debug" else ""}/"
+        "${Environment.DIRECTORY_DOWNLOADS}/${com.sshborg.data.downloadDirectoryName(BuildConfig.APPLICATION_ID)}/"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

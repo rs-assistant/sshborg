@@ -18,7 +18,7 @@ module.exports = {
   badge_no_tracking: 'トラッキングなし',
   badge_no_cloud:    'クラウドなし',
   badge_free:        '無料',
-  badge_android:     'Android 10+',
+  badge_android:     'Android 11+',
   badge_ios: 'iOS 16+',
 
   cta_download:   'ダウンロード',
@@ -49,7 +49,8 @@ module.exports = {
   security_title: '// プライバシーファースト、設計から',
   security_desc:  'SSHBorgはあなたのデータを一切収集しません。認証情報、鍵、接続情報はすべてデバイス上に留まります。',
 
-  sec_badge_keystore:   'デバイスのハードウェア暗号化',
+  sec_badge_keystore: "保護された認証情報",
+  security_branch_notice: '<aside class="callout callout-warn" data-policy="test-branch" role="note"><p><strong>Android 11+ のセキュリティ強化テストブランチであり、ストアの正式版ではありません。端末とセキュリティの完全な検証は未完了です。テスト用認証情報のみ使用してください。この Android 方針は iOS の説明ではありません。</strong></p></aside>',
   sec_badge_analytics:  '解析なし',
   sec_badge_sdks:       'サードパーティSDKなし',
   sec_badge_screenshots:'画面内容の保護',
@@ -246,18 +247,18 @@ chmod 600 ~/.ssh/authorized_keys</code></pre>
                 <div class="callout-label">// サーバー要件</div>
                 サーバーの <code>/etc/ssh/sshd_config</code> に <code>PubkeyAuthentication yes</code> があることを確認してください。ほとんどのディストリビューションではデフォルトで有効ですが、一部のセキュア強化イメージでは無効になっている場合があります。
             </div>
-            <h3>保存した鍵とパスワードの暗号化</h3>
-            <p><strong>設定 → セキュリティ → 機密データを暗号化</strong> をオンにすると、秘密鍵と保存したホストのパスワードが、端末のセキュアなハードウェアに保管された鍵（AndroidではAndroid Keystore、iOSではキーチェーン）で暗号化されて保存されます。有効にするまではオフのままです。初回起動時のセキュリティのヒントでも案内されます。</p>
-            <p>暗号化されたデータは端末とこのアプリのインストールに結び付いています。アンインストールすると保存した鍵は復元できず、新しい鍵を生成してサーバーに登録し直す必要があります。機密性の高いサーバー認証情報をスマートフォンに保存する場合は、アプリのロックと併せて強くお勧めします。</p>
-            <p>パスフレーズで保護された鍵は、インポート時に一度だけパスフレーズを尋ね、その後は解除された状態で保存されます。パスフレーズ自体が端末に書き込まれることはありません。パスフレーズはほかでも使い回されているのが普通ですが、秘密鍵はその鍵の価値しか持ちません。しかも自分のパスフレーズのすぐ隣に置かれた鍵は、そのパスフレーズに守られているとは言えません。ここで鍵を守るのは、アプリの専用領域と<strong>機密データを暗号化</strong>、そしてアプリロックです。以前のバージョンでインポートした鍵は暗号化されたまま保存されており、認証できません。一覧では印が付くので、もう一度インポートしてください。</p>
+            <h3>Android テストブランチ：保護された認証情報</h3>
+            <div data-platform="android-test">
+            <p data-policy="storage">保存する秘密鍵とパスワードは、認証が必要な Android Keystore 鍵で暗号化する必要があります。任意の暗号化スイッチはありません。ハードウェア保護の有無は端末に依存します。</p>
+            <p data-policy="auth">新しい SSH／SFTP 接続、再試行、再接続ごとに新たな承認が必要です。各踏み台の情報を含め、保存済みの各認証情報には個別のシステム暗号処理の確認も必要です。キャンセルやバックグラウンド移行で保留中の操作は拒否されます。</p>
+            <p data-policy="migration">旧暗号化データは設定で明示的に移行します。読み取り、暗号化、独立した復号再読み取りの検証を承認し、成功してから置換します。キャンセルや失敗では元データを保持します。旧鍵がない場合や平文・破損データは再インポートまたは再入力が必要です。古いデータベースページが消去されたことを意味しません。</p>
+            <p data-policy="backup">設定のエクスポートには秘密鍵、パスワード、保存済みホスト鍵は含まれません。アンインストールやデータ消去で認証情報が利用できなくなる場合があります。署名の競合を解決するために削除せず、新しい端末鍵とサーバーアクセスの復旧を別途準備してください。</p>
             <p>アプリが開けない暗号化形式が二つあります。OpenSSL のコンテナ（<code>BEGIN ENCRYPTED PRIVATE KEY</code>）と PuTTY の <code>.ppk</code> です。インポートは中途半端に取り込まず、その旨を伝えます。作成に使ったツールで復号してから、もう一度インポートしてください。作業は必ずコピーに対して行い、一つしかないファイルには行わないでください。</p>
             <pre><code>ssh-keygen -p -N "" -f id_ed25519_copy
 openssl pkcs8 -in key.pem -out key_plain.pem</code></pre>
             <p><code>.ppk</code> は PuTTYgen の <em>Conversions → Export OpenSSH key</em> で変換できます。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS も同じ仕組みです。パスフレーズはインポート時に一度だけ尋ね、鍵は解除された状態で保存され、パスフレーズはどこにも書き込まれません。Android より一つ多く断る形式があります。OpenSSL のコンテナと PuTTY の <code>.ppk</code> に加えて、古い PEM 暗号化（<code>Proc-Type: 4,ENCRYPTED</code>）— <code>ssh-keygen -m PEM</code> にパスフレーズを与えたときに書かれる形式です。その種の鍵は復号してから、もう一度インポートしてください。
-            </div>`,
+            </div>
+            <div data-platform="ios"><p>iOS は別のアプリです。上記 Android の認証・移行・バックアップ方針は適用されません。<a href="{{REPO_IOS}}">iOS プロジェクト</a>をご確認ください。</p></div>`,
 
   doc_suggestions: `
             <h2>// コマンド候補</h2>
@@ -519,41 +520,22 @@ Host target
 
   doc_security: `
             <h2>// アプリのセキュリティ</h2>
-            <h3>アプリのロック</h3>
-            <p><strong>設定 → セキュリティ → アプリのロック</strong> で保護方法を選べます：<strong>なし</strong>（既定）、<strong>生体認証のみ</strong>（指紋または顔認証）、<strong>デバイスのロック</strong>（生体認証に加え、端末のPIN・パターン・パスワード）、またはアプリ内の <strong>PIN・パスフレーズ</strong>。ロックが有効な場合、SSHBorgはホスト、認証情報、セッションデータを表示する前に認証を要求します。認証が拒否された場合や、認証を取り消した場合は、アプリは自身のロック画面に留まり、再試行のボタンが表示されます。アプリは終了しないので、開いていたセッションはロック解除後もそのまま残ります。</p>
-            <p>アプリ内の <strong>PIN・パスフレーズ</strong> は、生体認証ハードウェアやシステムの画面ロックがなくても、どの端末でも使えます。そのためAndroid TVでは最適な選択です。変更や解除の際は、まず現在のものを尋ねられます。忘れると復元できません。アプリのデータを消去するか再インストールが必要になるため、ホストのバックアップを保管してください。</p>
-            <p>非アクティブタイムアウトを設定できます。バックグラウンドでその時間が経過すると、アプリは自動的にロックされます。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                ロックは<strong>なし</strong>、<strong>生体認証のみ</strong>（Face ID または Touch ID）、<strong>デバイスのロック</strong>（端末のパスコードまたは生体認証）から選べます。アプリ内のPIN・パスフレーズはありません。
-            </div>
+            <div data-platform="android-test">
+            <p data-policy="lock">安全な画面ロックと、強力な生体認証または端末の PIN／パターン／パスワード認証が必要です。アプリロックやアプリ内 PIN は画面を保護しますが、認証情報の復号承認の代わりにはなりません。</p>
+            <p data-policy="storage">保存する秘密鍵とパスワードは、認証が必要な Android Keystore 鍵で暗号化する必要があります。任意の暗号化スイッチはありません。ハードウェア保護の有無は端末に依存します。</p>
+            <p data-policy="auth">新しい SSH／SFTP 接続、再試行、再接続ごとに新たな承認が必要です。各踏み台の情報を含め、保存済みの各認証情報には個別のシステム暗号処理の確認も必要です。キャンセルやバックグラウンド移行で保留中の操作は拒否されます。</p>
+            <p data-policy="migration">旧暗号化データは設定で明示的に移行します。読み取り、暗号化、独立した復号再読み取りの検証を承認し、成功してから置換します。キャンセルや失敗では元データを保持します。旧鍵がない場合や平文・破損データは再インポートまたは再入力が必要です。古いデータベースページが消去されたことを意味しません。</p>
+            <p data-policy="backup">設定のエクスポートには秘密鍵、パスワード、保存済みホスト鍵は含まれません。アンインストールやデータ消去で認証情報が利用できなくなる場合があります。署名の競合を解決するために削除せず、新しい端末鍵とサーバーアクセスの復旧を別途準備してください。</p>
+            <p data-policy="limits">侵害された OS や既に承認済みの操作は、この保証の対象外です。PIN 画面の遷移、Keystore の動作、データを保持する更新は端末検証が必要であり、すべての端末のハードウェア保護や同じ動作を保証しません。</p>
             <h3>スクリーンショット保護</h3>
             <p>SSHBorgはデフォルトでスクリーンショットと画面録画をブロックし、機密性の高い端末内容が最近使ったアプリの画面やスクリーンキャプチャツールから漏れないようにします。</p>
             <p>スクリーンショットが必要な場合（例：端末出力の共有）は、<strong>設定 → セキュリティ → スクリーンショットを許可</strong> で一時的に無効にできます。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOSではアプリがスクリーンショットや画面収録をブロックできないため、この設定はありません。アプリのロックを有効にしていると、SSHBorgは画面から離れた瞬間に内容を覆い隠すので、ホストやターミナルがAppスイッチャーに表示されません。
             </div>
-            <h3>認証情報の保存</h3>
-            <p><strong>機密データを暗号化</strong> をオンにすると（<a href="#ssh-keys">SSH鍵</a>を参照）、パスワードと秘密鍵は、<strong>Android Keystore</strong>（Android 10+ではハードウェアで保護）またはiOSの <strong>キーチェーン</strong> に保管された、この端末に限定された鍵で暗号化して保存されます。認証情報が外部ストレージに書き込まれたり、どこかへ送信されたりすることは一切ありません。</p>
-            <div class="callout callout-warn">
-                <div class="callout-label">// バックアップについて</div>
-                暗号化の鍵は端末のセキュアなハードウェアから出ることがないため、鍵をクラウドや端末のバックアップから<strong>復元できず</strong>、新しいスマートフォンに自動的に転送されません。デバイスを切り替える前に、新しいデバイスで生成した新しい鍵をすべてのサーバーに登録してください。
-            </div>
-            <h3>もっとも安全な設定</h3>
-            <p>上のひとつひとつだけでも役に立ちます。組み合わせれば、このアプリでできるもっとも堅い構成になり、手間は二分ほどです。</p>
-            <ol>
-                <li><strong>設定 → セキュリティ → 機密データを暗号化</strong>をオンにします。</li>
-                <li>アプリロックを<strong>生体認証のみ</strong>にします。端末の生体認証に頼りたくない場合は<strong>PIN またはパスフレーズ</strong>にします。</li>
-                <li>ロックまでの時間を<strong>すぐに</strong>、長くても <strong>30 秒</strong>にします。</li>
-                <li>アプリで新しい鍵を生成します。どの端末のものか分かる名前を付けてください。</li>
-                <li>その鍵をサーバーで許可し、パスワードの代わりに使います。</li>
-            </ol>
-            <p>端末の中で生成した鍵は、ほかのどこにも存在したことがありません。すでに漏れているかもしれない古い複製もなく、別のマシンで片づけるものもありません。端末ごとに鍵を分けておけば、端末をなくしても失うのは <code>authorized_keys</code> の一行だけです。その行を消せばほかの端末はそのまま使えます。だからこそ名前はよく選ぶ価値があります。</p>
-            <p>これらすべてができないこと。端末そのものが乗っ取られたなら、ディスク上で何に守られていようと、その鍵も一緒に失われます。鍵にパスフレーズを付けても救えません。アプリの保存領域を読めるものは、入力する内容も読めるからです。だから SSHBorg は鍵のパスフレーズをインポート時に一度だけ尋ね、パスフレーズではなく解除済みの鍵を保存します（<a href="#ssh-keys">SSH鍵</a>を参照）。</p>`,
+            <div data-platform="ios"><p>iOS は別のアプリです。上記 Android の認証・移行・バックアップ方針は適用されません。<a href="{{REPO_IOS}}">iOS プロジェクト</a>をご確認ください。</p></div>`,
 
   doc_android_tv: `
             <h2>// ANDROID TV</h2>
+            <p data-policy="tv-auth">安全な画面ロックと、強力な生体認証または端末の PIN／パターン／パスワード認証が必要です。アプリロックやアプリ内 PIN は画面を保護しますが、認証情報の復号承認の代わりにはなりません。</p>
             <p>SSHBorg は Android TV と Google TV で動作します。リモコンの十字キーで操作できますが、テキスト中心のアプリのため、物理キーボードがあると大きく変わります。</p>
             <h3>リモコンでの操作</h3>
             <ul>
@@ -581,6 +563,8 @@ Host target
             <p>いずれも自分から何かに接続することはありません。SSHBorg が接続するのは、あなたが指定したサーバーと、リンクをタップしたときの sshborg.com だけです。解析ライブラリも広告ライブラリも、いかなるトラッカーもありません。</p>`,
 
   doc_backup: `
+            <div data-platform="android-test" data-backup-format="8">
+            <p data-policy="backup-format">Android テストブランチはバックアップ形式 8 を使用し、設定のみをエクスポートします。認証情報や信頼済みホスト鍵は含みません。iOS は別実装であり、この形式と拒否方針の説明対象ではありません。</p>
             <h2>// 設定のバックアップ</h2>
             <p>SSHBorgはホストの設定とアプリの設定をJSONファイルとしてエクスポート・インポートできます。これにより、サーバーリストを別のデバイスに移したり、設定のポータブルなバックアップを保管したりできます。</p>
             <div class="callout callout-warn">
@@ -595,14 +579,14 @@ Host target
                 <li><strong>名前</strong>が既存のエントリと一致するホストは<strong>更新</strong>されます。</li>
                 <li>新しい名前を持つホストは<strong>追加</strong>されます。</li>
                 <li>ファイルにないホストは<strong>変更されません</strong>。</li>
-                <li>更新されるホストは保存済みのパスワード・鍵・承認済みホスト鍵を保持します（バックアップには含まれません）。</li>
-                <li>鍵のないホストは、エクスポートされた <code>keyLabel</code> と名前が一致する鍵があればそれにリンクされます。なければこのフィールドは無視されます。</li>
+                <li data-policy="pin-retention">更新するホストの現在の認証情報は保持します。ホスト鍵の信頼はホスト名とポートが同じ場合のみ保持し、接続先が変われば再検証します。</li>
+                <li data-policy="key-reference">名前で指定した SSH 鍵はインポート前に一意に特定できる必要があります。鍵がない場合や同名の場合はインポートを拒否し、パスワード認証へ自動的に切り替えません。</li>
                 <li>更新されたホストは、この端末にすでにある使用データ（最終接続・回数・手動の位置）を保持します。ファイルは足りない分だけを補います。</li>
-</ul>
+            </ul>
             <h3>JSON形式</h3>
             <p>エクスポートファイルは通常のJSONオブジェクトです。手動で作成して、別のソースからサーバーリストを一括インポートすることもできます。</p>
             <pre><code>{
-  "version": 7,
+  "version": 8,
   "exported_at": "2026-05-14T10:00:00Z",
   "groups": [
     { "name": "本番", "color": -1754827, "position": 0 }
@@ -616,7 +600,7 @@ Host target
       "agentForwarding": false,
       "jumpMode":        "simple",
       "jumpHosts":       null,
-      "jumpHostIdList":  null,
+      "jumpHostLabels": [],
       "portForwardings": null,
       "sftpStartMode":   "last",
       "sftpStartDir":    null,
@@ -645,14 +629,14 @@ Host target
                 <li><code>port</code> — SSHポート。デフォルト：<code>22</code>。</li>
                 <li><code>username</code> — ログインユーザー名。<strong>必須。</strong></li>
                 <li><code>agentForwarding</code> — <code>true</code> でSSHエージェント転送を有効化。デフォルト：<code>false</code>。</li>
-                <li><code>jumpMode</code> — <code>"simple"</code>（<code>jumpHosts</code>のテキストを使用）または <code>"host_list"</code>（SSHBorgの内部ホストIDを使用）。手動作成時は <code>"simple"</code> を使用してください。</li>
+                <li><code>jumpMode</code> — <code>simple</code> / <code>host_list</code>. host_list には順序付き jumpHostLabels（ホスト名）を使い、端末固有の行 ID は使いません。踏み台がない場合や同名の場合は全インポートを拒否し、ホストとグループは原子的に復元します。</li>
                 <li><code>jumpHosts</code> — <code>[ユーザー@]ホスト[:ポート]</code> 形式のカンマ区切りの踏み台ホスト。<code>jumpMode</code> が <code>"simple"</code> のときのみ使用。</li>
                 <li><code>portForwardings</code> — SSH <code>-L</code> 構文による改行区切りのローカルポート転送ルール（例：<code>"8080:localhost:8080"</code>）。</li>
                 <li><code>sftpStartMode</code> — SFTPの開始ディレクトリ：<code>"last"</code>（最後に訪問したディレクトリを記憶）、<code>"fixed"</code>（常に <code>sftpStartDir</code> を使用）、<code>"home"</code>（サーバーのホームディレクトリ）。デフォルト：<code>"last"</code>。</li>
                 <li><code>sftpStartDir</code> — <code>sftpStartMode</code> が <code>"fixed"</code> のときに使用するパス。</li>
                 <li><code>sftpShowHidden</code> — <code>true</code> でこのホストの SFTP ブラウザに隠しファイル（ドットファイル、"." で始まる名前）を表示します。既定は <code>false</code>。</li>
                 <li><code>allowLegacyCiphers</code> — <code>true</code> にすると、前述のレガシー暗号アルゴリズムが有効になります。既定は <code>false</code> です。</li>
-                <li><code>keyLabel</code> — このホストが使用するSSH鍵の名前。インポート時に同じ名前の鍵があればホストにリンクされ、なければ無視されます。鍵そのものはバックアップに含まれません。</li>
+                <li><code>keyLabel</code> — 名前で指定した SSH 鍵はインポート前に一意に特定できる必要があります。鍵がない場合や同名の場合はインポートを拒否し、パスワード認証へ自動的に切り替えません。</li>
                 <li><code>group</code> — ホストが属するグループ名。グループはトップレベルの <code>groups</code> 配列に <code>name</code> と <code>color</code>（符号付き 32 ビット整数の ARGB）で記載します。配列にないグループをホストが参照している場合は既定の色で自動作成されるため、手書きの場合は配列を丸ごと省略してもかまいません。</li>
                 <li><code>color</code> — ホストごとの任意の色（符号付き 32 ビット整数の ARGB）。グループの色より優先されます。</li>
                             <li><code>position</code> — 手動の並び順でのホストの位置。所属するセクション（グループなしのブロック、または 1 つのグループ）の中で数えます。省略するとホストは末尾に追加されます。グループも <code>groups</code> 配列内に独自の <code>position</code> を持ちます。</li>
@@ -662,7 +646,7 @@ Host target
             <div class="callout callout-info">
                 <div class="callout-label">// 省略可能なフィールド</div>
                 <code>label</code>、<code>hostname</code>、<code>username</code> 以外のフィールドはすべて省略可能です。省略されたフィールドはデフォルト値が使用されます。
-            </div>`,
+            </div>            </div>`,
 
   // ── changelog.html ─────────────────────────────────────────────────────────
   nav_changelog:               '変更履歴',

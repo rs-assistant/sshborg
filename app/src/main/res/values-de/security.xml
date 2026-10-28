@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_keep_saved">Das gespeicherte Passwort bleibt erhalten. Gib ein neues Passwort ein, um es zu ersetzen.</string>
+    <string name="host_password_remove_saved">Gespeichertes Passwort entfernen</string>
+    <string name="host_password_removal_pending">Das gespeicherte Passwort wird beim Speichern entfernt.</string>
+    <string name="host_load_failed">Dieser Host konnte nicht geladen werden. Öffne den Editor erneut und versuche es noch einmal.</string>
+    <string name="host_password_reentry_required">Das gespeicherte Passwort lag im alten Klartextformat vor und wurde nicht geladen. Geben Sie es erneut ein, um es verschlüsselt zu speichern.</string>
+    <string name="host_key_required">Wählen Sie vor dem Speichern einen SSH-Schlüssel.</string>
+    <string name="host_save_failed">Der Host konnte nicht gespeichert werden. Der Editor bleibt für einen neuen Versuch geöffnet.</string>
+    <string name="keys_reimport_required">Importieren Sie diesen Schlüssel vor der Verwendung erneut</string>
+    <string name="host_jump_selection_invalid">Wählen oder entfernen Sie vor dem Speichern jeden Zwischenhost.</string>
+    <string name="host_jump_chain_invalid">Geben Sie jeden Zwischenhost als [user@]host[:port] mit eckigen Klammern für IPv6 ein oder leeren Sie die gesamte Kette.</string>
+    <string name="keys_save_failed">Der Schlüssel konnte nicht sicher verschlüsselt oder gespeichert werden. Versuchen Sie es erneut.</string>
+    <string name="keys_generate_failed">Der Schlüssel konnte nicht erzeugt werden. Prüfen Sie die Optionen und versuchen Sie es erneut.</string>
+    <string name="credential_migration_title">Geschützte Zugangsdaten</string>
+    <string name="credential_auth_required">Erforderlich</string>
+    <string name="credential_migration_explanation">Android 11 oder neuer und starke Systembiometrie oder die Geräte-PIN, das Muster oder Passwort sind erforderlich. Alle gespeicherten Zugangsdaten, auch für Zwischenhosts, benötigen eine eigene Bestätigung. Die unten aufgeführten alten verschlüsselten Daten müssen vor der Verwendung ausdrücklich migriert oder neu importiert werden. Klartextdaten oder beschädigte Einträge müssen neu eingegeben oder importiert werden.</string>
+    <string name="credential_migration_key">Alter verschlüsselter SSH-Schlüssel</string>
+    <string name="credential_migration_password">Altes verschlüsseltes Host-Passwort</string>
+    <string name="credential_migration_action">Migrieren</string>
+    <string name="credential_migration_confirm_title">%1$s migrieren?</string>
+    <string name="credential_migration_confirm_body">Nur diese Zugangsdaten werden migriert. Bestätigen Sie die Systemauthentifizierung zum Lesen der alten Daten, Verschlüsseln mit dem geschützten Schlüssel und erneuten Entschlüsseln zur Prüfung. Mehrere Bestätigungen sind nötig. Das Original wird nur nach erfolgreicher Prüfung ersetzt, wenn es unverändert ist. Abbruch oder Fehler vor dem Commit lassen es unverändert. Kein alter Keystore-Schlüssel wird gelöscht.</string>
+    <string name="credential_migration_success">Zugangsdaten migriert und überprüft.</string>
+    <string name="credential_migration_failed">Migration abgebrochen, fehlgeschlagen oder Zugangsdaten geändert. Die Migration hat das Original nicht ersetzt. Laden Sie neu und versuchen Sie es erneut oder importieren Sie neu, falls der alte Verschlüsselungsschlüssel fehlt.</string>
+    <string name="backup_import_failed">Host-Import fehlgeschlagen; Hosts und Gruppen wurden nicht geändert. Prüfen Sie doppelte Namen, fehlende SSH-Schlüssel oder Zwischenhosts und ungültige Daten. Alte Sicherungen mit Zwischenhost-Zeilen-IDs müssen auf dem Quellgerät neu exportiert werden.</string>
+    <string name="backup_export_failed">Sicherung konnte nicht exportiert werden. Prüfen Sie das Ziel, eindeutige Host- und Schlüsselnamen sowie alle Zwischenhosts.</string>
+    <string name="backup_settings_import_failed">Hosts importiert (%1$d neu, %2$d aktualisiert), aber App-Einstellungen nicht wiederhergestellt. Prüfen Sie Ihre Einstellungen.</string>
+    <string name="connection_authorization_title">SSH-/SFTP-Verbindung autorisieren</string>
+    <string name="connection_authorization_subtitle">Bestätigen Sie vor dem Verbinden Ihre Identität</string>
+    <string name="credential_authorization_title">Geschützte SSH-Zugangsdaten autorisieren</string>
+</resources>

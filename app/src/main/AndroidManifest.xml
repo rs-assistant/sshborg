@@ -15,6 +15,8 @@
     <application
         android:name=".SshBorgApp"
         android:allowBackup="${allowBackup}"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="${appLabel}"
         android:roundIcon="@mipmap/ic_launcher_round"

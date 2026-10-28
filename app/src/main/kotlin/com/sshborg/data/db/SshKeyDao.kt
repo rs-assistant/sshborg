@@ -17,6 +17,12 @@ interface SshKeyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(key: SshKeyEntity): Long
 
+    @Query("UPDATE ssh_keys SET encryptedBlob = :replacement WHERE id = :id AND encryptedBlob = :expected")
+    suspend fun replaceEncryptedBlob(id: Long, expected: String, replacement: String): Int
+
+    @Query("UPDATE ssh_keys SET label = :label, publicKey = :publicKey WHERE id = :id")
+    suspend fun rename(id: Long, label: String, publicKey: String)
+
     @Delete
     suspend fun delete(key: SshKeyEntity)
 }

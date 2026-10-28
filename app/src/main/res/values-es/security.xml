@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_keep_saved">Se conservará la contraseña guardada. Introduce una nueva contraseña para reemplazarla.</string>
+    <string name="host_password_remove_saved">Eliminar la contraseña guardada</string>
+    <string name="host_password_removal_pending">La contraseña guardada se eliminará al guardar.</string>
+    <string name="host_load_failed">No se pudo cargar este host. Vuelve a abrir el editor para intentarlo de nuevo.</string>
+    <string name="host_password_reentry_required">La contraseña guardada usaba el antiguo formato en texto plano y no se ha cargado. Introdúcela de nuevo para guardarla cifrada.</string>
+    <string name="host_key_required">Selecciona una clave SSH antes de guardar.</string>
+    <string name="host_save_failed">No se pudo guardar este host. El editor permanece abierto para reintentarlo.</string>
+    <string name="keys_reimport_required">Vuelve a importar esta clave antes de usarla</string>
+    <string name="host_jump_selection_invalid">Selecciona o elimina cada host de salto antes de guardar.</string>
+    <string name="host_jump_chain_invalid">Introduce cada salto como [user@]host[:port], con corchetes para IPv6, o vacía toda la cadena.</string>
+    <string name="keys_save_failed">No se pudo cifrar o guardar la clave de forma segura. Inténtalo de nuevo.</string>
+    <string name="keys_generate_failed">No se pudo generar la clave. Revisa las opciones e inténtalo de nuevo.</string>
+    <string name="credential_migration_title">Credenciales protegidas</string>
+    <string name="credential_auth_required">Obligatorio</string>
+    <string name="credential_migration_explanation">Se requieren Android 11 o posterior y autenticación del sistema con biometría fuerte o PIN, patrón o contraseña del dispositivo. Cada credencial guardada, incluidas las de los saltos, necesita una confirmación propia. Las credenciales cifradas antiguas indicadas abajo deben migrarse explícitamente o volver a importarse antes de usarlas. Los registros en texto plano o dañados deben introducirse o importarse de nuevo.</string>
+    <string name="credential_migration_key">Clave SSH cifrada antigua</string>
+    <string name="credential_migration_password">Contraseña de host cifrada antigua</string>
+    <string name="credential_migration_action">Migrar</string>
+    <string name="credential_migration_confirm_title">¿Migrar %1$s?</string>
+    <string name="credential_migration_confirm_body">Solo se migrará esta credencial. Confirma la autenticación del sistema para leer la credencial antigua, cifrarla con la clave protegida y descifrarla de nuevo para verificarla. Se necesitan varias confirmaciones. El original solo se sustituye tras la verificación y si no ha cambiado. Cancelar o fallar antes de confirmar los cambios lo deja intacto. No se elimina ninguna clave antigua de Keystore.</string>
+    <string name="credential_migration_success">Credencial migrada y verificada.</string>
+    <string name="credential_migration_failed">Migración cancelada, fallida o credencial modificada. La migración no sustituyó el original. Recarga e inténtalo de nuevo, o vuelve a importar si la antigua clave de cifrado no está disponible.</string>
+    <string name="backup_import_failed">La importación falló; no se modificaron hosts ni grupos. Revisa nombres duplicados, claves SSH o saltos ausentes y datos no válidos. Las copias antiguas con ID de filas de saltos deben exportarse de nuevo desde la instalación de origen.</string>
+    <string name="backup_export_failed">No se pudo exportar la copia. Revisa el destino, que los nombres de hosts y claves sean únicos y todos los saltos configurados.</string>
+    <string name="backup_settings_import_failed">Hosts importados (%1$d nuevos, %2$d actualizados), pero no se restauraron los ajustes de la app. Revisa los ajustes.</string>
+    <string name="connection_authorization_title">Autorizar conexión SSH / SFTP</string>
+    <string name="connection_authorization_subtitle">Verifica tu identidad antes de conectar</string>
+    <string name="credential_authorization_title">Autorizar credencial SSH protegida</string>
+</resources>

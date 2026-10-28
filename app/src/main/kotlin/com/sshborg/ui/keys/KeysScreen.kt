@@ -44,15 +44,8 @@ fun KeysScreen(onBack: () -> Unit, vm: KeysViewModel = viewModel()) {
     var keyToRename by remember { mutableStateOf<SshKeyEntity?>(null) }
     var expandedKeyId by remember { mutableStateOf<Long?>(null) }
 
-    // Which keys cannot be used as they stand: encrypted, with no passphrase stored. Keys
-    // imported before the app kept the passphrase are all in here, and nothing else would tell
-    // them apart from a working key, so the list says so rather than letting the next connection
-    // fail for no visible reason. Recomputed whenever the list changes, which is how the warning
-    // goes away once the key is imported again.
-    val needsReimport = remember { mutableStateMapOf<Long, Boolean>() }
-    LaunchedEffect(keys) {
-        keys.forEach { key -> needsReimport[key.id] = vm.needsReimport(key) }
-    }
+    // Listing public metadata must never decrypt private keys. Unreadable encrypted records
+    // are diagnosed only by an explicitly authorized connection attempt.
 
     val context = LocalContext.current
     val importFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -97,7 +90,7 @@ fun KeysScreen(onBack: () -> Unit, vm: KeysViewModel = viewModel()) {
                     KeyItem(
                         key = key,
                         expanded = expandedKeyId == key.id,
-                        needsReimport = needsReimport[key.id] == true,
+                        needsReimport = key.encryptedBlob.isNullOrBlank(),
                         onExpand = { expandedKeyId = if (expandedKeyId == key.id) null else key.id },
                         onRename = { keyToRename = key },
                         onDelete = { keyToDelete = key },
@@ -109,6 +102,7 @@ fun KeysScreen(onBack: () -> Unit, vm: KeysViewModel = viewModel()) {
 
     if (showImportDialog) {
         ImportKeyDialog(
+            busy = vm.isSaving,
             pem = importPem,
             onPemChange = { importPem = it },
             onLoadFromFile = { (context.applicationContext as com.sshborg.SshBorgApp).allowPickerTrip(); importFileLauncher.launch("*/*") },
@@ -121,7 +115,10 @@ fun KeysScreen(onBack: () -> Unit, vm: KeysViewModel = viewModel()) {
 
     if (showGenerateDialog) {
         GenerateKeyDialog(
-            onGenerate = { label, type, size -> vm.generateKey(label, type, size) {}; showGenerateDialog = false },
+            busy = vm.isSaving,
+            onGenerate = { label, type, size, onError ->
+                vm.generateKey(label, type, size, onError) { showGenerateDialog = false }
+            },
             onDismiss = { showGenerateDialog = false },
         )
     }
@@ -164,7 +161,7 @@ fun KeysScreen(onBack: () -> Unit, vm: KeysViewModel = viewModel()) {
 private fun KeyItem(
     key: SshKeyEntity,
     expanded: Boolean,
-    /** The key is encrypted and its passphrase is not stored, so it cannot authenticate. */
+    /** A legacy or empty record cannot authenticate without an explicit re-import. */
     needsReimport: Boolean,
     onExpand: () -> Unit,
     onRename: () -> Unit,
@@ -196,7 +193,7 @@ private fun KeyItem(
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                stringResource(R.string.keys_needs_passphrase),
+                                stringResource(R.string.keys_reimport_required),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
@@ -309,6 +306,7 @@ private fun RenameKeyDialog(
 
 @Composable
 private fun ImportKeyDialog(
+    busy: Boolean,
     pem: String,
     onPemChange: (String) -> Unit,
     onLoadFromFile: () -> Unit,
@@ -330,10 +328,11 @@ private fun ImportKeyDialog(
     val errorWrongPass   = stringResource(R.string.keys_import_error_wrong_passphrase)
     val errorInvalid     = stringResource(R.string.keys_import_error_invalid)
     val errorEncryption  = stringResource(R.string.keys_import_error_encryption)
+    val errorSaving      = stringResource(R.string.keys_save_failed)
     val defaultLabel     = stringResource(R.string.keys_import_default_label)
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         // With the keyboard up, this dialog is taller than the room left for it. The window must
         // not try to fit the IME itself — it keeps its full height and leaves the buttons behind
         // the keyboard. Padding the dialog's own content instead shrinks the space it is measured
@@ -365,6 +364,7 @@ private fun ImportKeyDialog(
                 }
                 OutlinedButton(
                     onClick = onLoadFromFile,
+                    enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Default.FileOpen, null, Modifier.size(18.dp))
@@ -451,21 +451,26 @@ private fun ImportKeyDialog(
                             // The passphrase was right; it is the key's own encryption we
                             // cannot undo, so this belongs to the key, not to what was typed.
                             "unsupported_encryption" -> pemError = errorEncryption
+                            "save_failed"      -> pemError = errorSaving
                             else               -> pemError = errorInvalid
                         }
                     }
                 },
-                enabled = pem.isNotBlank(),
+                enabled = !busy && pem.isNotBlank(),
             ) { Text(stringResource(R.string.keys_import_action)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }
 
 @Composable
-private fun GenerateKeyDialog(onGenerate: (String, String, String) -> Unit, onDismiss: () -> Unit) {
+private fun GenerateKeyDialog(
+    busy: Boolean,
+    onGenerate: (String, String, String, (String) -> Unit) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var label by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("ed25519") }
     var rsaBits by remember { mutableStateOf("4096") }
@@ -475,9 +480,12 @@ private fun GenerateKeyDialog(onGenerate: (String, String, String) -> Unit, onDi
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val genContext = LocalContext.current
     val touchless = remember { isTouchless(genContext) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val errorSaving = stringResource(R.string.keys_save_failed)
+    val errorGeneration = stringResource(R.string.keys_generate_failed)
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         modifier = Modifier.imePadding(),
         properties = DialogProperties(decorFitsSystemWindows = false),
         title = { Text(stringResource(R.string.keygen_title)) },
@@ -548,6 +556,7 @@ private fun GenerateKeyDialog(onGenerate: (String, String, String) -> Unit, onDi
                         }
                     }
                 }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -557,12 +566,18 @@ private fun GenerateKeyDialog(onGenerate: (String, String, String) -> Unit, onDi
                 else    -> ""
             }
             OutlinedButton(
-                onClick = { focusManager.clearFocus(); onGenerate(label.ifBlank { type.uppercase() + " Key" }, type, size) },
-                enabled = type != "rsa" || rsaBits.toIntOrNull()?.let { it >= 1024 } == true,
+                onClick = {
+                    focusManager.clearFocus()
+                    error = null
+                    onGenerate(label.ifBlank { type.uppercase() + " Key" }, type, size) {
+                        error = if (it == "save_failed") errorSaving else errorGeneration
+                    }
+                },
+                enabled = !busy && (type != "rsa" || rsaBits.toIntOrNull()?.let { it >= 1024 } == true),
             ) { Text(stringResource(R.string.action_generate)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

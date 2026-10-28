@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sshborg"
-        minSdk = 29
+        minSdk = 30
         targetSdk = 36
         versionCode = 37
         versionName = "1.19.1"
@@ -36,7 +36,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["allowBackup"] = "true"
+            manifestPlaceholders["allowBackup"] = "false"
             manifestPlaceholders["appLabel"] = "SSHBorgDebug"
         }
         release {
@@ -46,6 +46,23 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             manifestPlaceholders["allowBackup"] = "false"
             manifestPlaceholders["appLabel"] = "SSHBorg"
+        }
+        create("personal") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            isDebuggable = false
+            // The existing tablet-test key is applied only in the isolated CI signer.
+            // Never use local production credentials or a generated debug key here.
+            signingConfig = null
+            matchingFallbacks += listOf("release")
+            manifestPlaceholders["appLabel"] = "SSHBorgDebug"
+        }
+    }
+
+    // All supported languages must remain available to the in-app locale switcher offline.
+    bundle {
+        language {
+            enableSplit = false
         }
     }
 

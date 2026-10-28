@@ -362,7 +362,7 @@
     <string name="error_encryption_failed">Verschlüsselung fehlgeschlagen</string>
     <string name="error_decryption_failed">Entschlüsselung fehlgeschlagen</string>
     <string name="settings_backup_export_title">Backup exportieren</string>
-    <string name="settings_backup_export_subtitle">Host-Konfigurationen und App-Einstellungen in eine JSON-Datei speichern. Passwörter und Schlüssel sind nicht enthalten.</string>
+    <string name="settings_backup_export_subtitle">Host-Konfigurationen und App-Einstellungen als JSON im Format 8 speichern, ohne Passwörter und Schlüssel. Nur mit einer Version wiederherstellen, die Format 8 unterstützt.</string>
     <string name="settings_backup_export_action">Exportieren</string>
     <string name="settings_backup_import_title">Backup importieren</string>
     <string name="settings_backup_import_subtitle">Host-Konfigurationen und App-Einstellungen aus einer JSON-Datei laden. Vorhandene Hosts mit demselben Namen werden aktualisiert; Passwörter und Schlüssel werden nicht importiert.</string>

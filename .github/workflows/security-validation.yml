@@ -1,0 +1,158 @@
+name: Hardened Android validation
+
+on:
+  push:
+    branches:
+      - security/harden-credential-storage
+  pull_request:
+    branches:
+      - V1
+  workflow_dispatch:
+    inputs:
+      publish_tablet_test:
+        description: Publish a verified Android 11+ tablet-test prerelease (not a production release)
+        required: true
+        type: boolean
+        default: false
+      tablet_build_variant:
+        description: Fixed-signer APK to publish (personal is non-debug, same installed tablet package)
+        required: true
+        type: choice
+        options:
+          - debug
+          - personal
+        default: debug
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TABLET_BUILD_VARIANT: ${{ inputs.tablet_build_variant || 'debug' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: Install Android API 37.0
+        run: |
+          sdkmanager --list --channel=3 | grep -E "platforms;android-37|build-tools;37" || true
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
+      - name: Verify Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Test security policy and prerelease safeguards
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Static credential policy checks
+        run: python3 scripts/check_security_policy.py
+      - name: Test localized website security scope and generation
+        run: node --test site/test/security.test.js
+      - name: Run JVM and local SSH/SFTP integration tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sshborg-security-tests"
+          "$RUNNER_TEMP/sshborg-security-tests/bin/python" -m pip install -r scripts/requirements-security-tests.txt
+          "$RUNNER_TEMP/sshborg-security-tests/bin/python" scripts/run-local-security-tests.py
+      - name: Lint and compile debug and device-test APKs
+        run: ./gradlew --no-daemon lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Lint and compile non-debug personal APK without signing secrets
+        run: |
+          ./gradlew --no-daemon lintPersonal assemblePersonal
+          python3 scripts/check_personal_apk.py app/build/outputs/apk/personal/app-personal-unsigned.apk --aapt2 "$ANDROID_HOME/build-tools/37.0.0/aapt2"
+      - name: Regression-test real APK signing without repository secrets
+        run: |
+          python3 scripts/check_tablet_signing.py --apksigner "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          python3 scripts/check_tablet_signing.py --apksigner "$ANDROID_HOME/build-tools/37.0.0/apksigner" --variant personal --aapt2 "$ANDROID_HOME/build-tools/37.0.0/aapt2"
+      - name: Inspect merged debug manifest
+        run: |
+          python3 - <<'PY'
+          import glob, pathlib, sys
+          paths = glob.glob('app/build/intermediates/merged_manifests/debug/**/AndroidManifest.xml', recursive=True)
+          if not paths:
+              sys.exit('Missing merged debug manifest')
+          from xml.etree import ElementTree as ET
+          ns = '{http://schemas.android.com/apk/res/android}'
+          root = ET.parse(paths[0]).getroot()
+          app = root.find('application')
+          uses_sdk = root.find('uses-sdk')
+          if uses_sdk is None or uses_sdk.get(ns + 'minSdkVersion') != '30':
+              sys.exit('FAIL: minimum supported Android API must be 30')
+          if app is None or app.get(ns + 'allowBackup') != 'false':
+              sys.exit('FAIL: debug Android backup is not disabled')
+          if app.get(ns + 'fullBackupContent') != 'false' or app.get(ns + 'dataExtractionRules') != '@xml/data_extraction_rules':
+              sys.exit('FAIL: explicit cloud/device-transfer exclusions are missing')
+          print('PASS: debug allowBackup=false and explicit extraction exclusions')
+          PY
+      - name: Stage verified tablet-test bundle
+        run: |
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          export AAPT2="$ANDROID_HOME/build-tools/37.0.0/aapt2"
+          python3 scripts/tablet_release.py stage app/build/tablet-test
+      - name: Upload verified test bundle (personal APK is unsigned until the isolated publisher)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sshborg-tablet-test-bundle
+          path: app/build/tablet-test/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-tablet-test:
+    needs: build-and-test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_tablet_test && github.ref == 'refs/heads/security/harden-credential-storage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TABLET_BUILD_VARIANT: ${{ inputs.tablet_build_variant || 'debug' }}
+    permissions:
+      contents: write
+    concurrency:
+      group: tablet-test-prerelease
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: sshborg-tablet-test-bundle
+          path: tablet-test
+      - name: Set up signing JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up signing Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: Install signing tools
+        run: sdkmanager --channel=3 "build-tools;37.0.0"
+      - name: Re-sign with the pinned tablet-test key
+        env:
+          TABLET_TEST_KEYSTORE_B64: ${{ secrets.TABLET_TEST_KEYSTORE_B64 }}
+          TABLET_TEST_STORE_PASSWORD: ${{ secrets.TABLET_TEST_STORE_PASSWORD }}
+          TABLET_TEST_CERT_SHA256: ${{ vars.TABLET_TEST_CERT_SHA256 }}
+        run: |
+          export APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          export AAPT2="$ANDROID_HOME/build-tools/37.0.0/aapt2"
+          python3 scripts/sign_tablet_bundle.py tablet-test
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TABLET_TEST_CERT_SHA256: ${{ vars.TABLET_TEST_CERT_SHA256 }}
+        run: |
+          export APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          export AAPT2="$ANDROID_HOME/build-tools/37.0.0/aapt2"
+          python3 scripts/tablet_release.py publish tablet-test

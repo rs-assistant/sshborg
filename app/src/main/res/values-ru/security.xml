@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="host_password_keep_saved">Сохранённый пароль останется без изменений. Чтобы заменить его, введите новый пароль.</string>
+    <string name="host_password_remove_saved">Удалить сохранённый пароль</string>
+    <string name="host_password_removal_pending">Сохранённый пароль будет удалён при сохранении.</string>
+    <string name="host_load_failed">Не удалось загрузить этот хост. Откройте редактор заново и повторите попытку.</string>
+    <string name="host_password_reentry_required">Сохранённый пароль был записан открытым текстом в старом формате и не загружен. Введите его снова для сохранения в зашифрованном виде.</string>
+    <string name="host_key_required">Перед сохранением выберите SSH-ключ.</string>
+    <string name="host_save_failed">Не удалось сохранить хост. Редактор остаётся открытым для повторной попытки.</string>
+    <string name="keys_reimport_required">Перед использованием импортируйте этот ключ заново</string>
+    <string name="host_jump_selection_invalid">Перед сохранением выберите или удалите каждый промежуточный хост.</string>
+    <string name="host_jump_chain_invalid">Введите каждый промежуточный хост как [user@]host[:port], заключив IPv6 в квадратные скобки, либо очистите всю цепочку.</string>
+    <string name="keys_save_failed">Не удалось безопасно зашифровать или сохранить ключ. Повторите попытку.</string>
+    <string name="keys_generate_failed">Не удалось создать ключ. Проверьте параметры и повторите попытку.</string>
+    <string name="credential_migration_title">Защищённые учётные данные</string>
+    <string name="credential_auth_required">Обязательно</string>
+    <string name="credential_migration_explanation">Требуются Android 11 или новее и системная надёжная биометрия либо PIN-код, графический ключ или пароль устройства. Для каждых сохранённых учётных данных, включая промежуточные хосты, нужно отдельное подтверждение. Указанные ниже старые зашифрованные данные перед использованием нужно явно перенести или импортировать заново. Незашифрованные или повреждённые записи требуют повторного ввода или импорта.</string>
+    <string name="credential_migration_key">SSH-ключ в старом зашифрованном формате</string>
+    <string name="credential_migration_password">Пароль хоста в старом зашифрованном формате</string>
+    <string name="credential_migration_action">Перенести</string>
+    <string name="credential_migration_confirm_title">Перенести %1$s?</string>
+    <string name="credential_migration_confirm_body">Будут перенесены только эти учётные данные. Подтвердите системную аутентификацию для чтения старой записи, шифрования защищённым ключом и повторной расшифровки для проверки. Потребуется несколько подтверждений. Исходная запись заменяется лишь после проверки, если она не изменилась. Отмена или ошибка до фиксации не меняет её. Старые ключи Keystore не удаляются.</string>
+    <string name="credential_migration_success">Учётные данные перенесены и проверены.</string>
+    <string name="credential_migration_failed">Перенос отменён, завершился ошибкой либо запись изменилась. Перенос не заменил исходную запись. Обновите данные и повторите попытку; если старый ключ шифрования недоступен, импортируйте заново.</string>
+    <string name="backup_import_failed">Импорт не выполнен; хосты и группы не изменены. Проверьте повторяющиеся имена, отсутствующие SSH-ключи или промежуточные хосты и корректность данных. Старые копии с ID строк промежуточных хостов нужно экспортировать заново на исходном устройстве.</string>
+    <string name="backup_export_failed">Не удалось экспортировать копию. Проверьте место сохранения, уникальность имён хостов и ключей и настройки промежуточных хостов.</string>
+    <string name="backup_settings_import_failed">Хосты импортированы (новых: %1$d, обновлено: %2$d), но настройки приложения не восстановлены. Проверьте настройки.</string>
+    <string name="connection_authorization_title">Разрешить подключение SSH / SFTP</string>
+    <string name="connection_authorization_subtitle">Подтвердите личность перед подключением</string>
+    <string name="credential_authorization_title">Разрешить доступ к защищённым данным SSH</string>
+</resources>

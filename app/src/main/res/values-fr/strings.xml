@@ -284,6 +284,7 @@
     <string name="error_move_failed">Déplacement impossible</string>
     <plurals name="sftp_cut_pending">
         <item quantity="one">%1$d élément à déplacer depuis %2$s</item>
+        <item quantity="many">%1$d éléments à déplacer depuis %2$s</item>
         <item quantity="other">%1$d éléments à déplacer depuis %2$s</item>
     </plurals>
     <string name="sftp_menu_download_in_background">Télécharger en arrière-plan</string>
@@ -362,7 +363,7 @@
     <string name="error_encryption_failed">Chiffrement échoué</string>
     <string name="error_decryption_failed">Déchiffrement échoué</string>
     <string name="settings_backup_export_title">Exporter la sauvegarde</string>
-    <string name="settings_backup_export_subtitle">Enregistrer les configurations des hôtes et les réglages de l\'application dans un fichier JSON. Les mots de passe et les clés ne sont pas inclus.</string>
+    <string name="settings_backup_export_subtitle">Enregistrer les hôtes et réglages en JSON au format 8, sans mots de passe ni clés. Restaurer uniquement avec une version compatible avec le format 8.</string>
     <string name="settings_backup_export_action">Exporter</string>
     <string name="settings_backup_import_title">Importer la sauvegarde</string>
     <string name="settings_backup_import_subtitle">Charger les configurations des hôtes et les réglages de l\'application depuis un fichier JSON. Les hôtes existants avec le même nom seront mis à jour ; mots de passe et clés ne seront pas importés.</string>
@@ -391,10 +392,12 @@
     <string name="notification_disconnect_all">Tout déconnecter</string>
     <plurals name="notification_active_sessions">
         <item quantity="one">%d session active</item>
+        <item quantity="many">%d sessions actives</item>
         <item quantity="other">%d sessions actives</item>
     </plurals>
     <plurals name="notification_bg_downloads">
         <item quantity="one">%d fichier en téléchargement</item>
+        <item quantity="many">%d fichiers en téléchargement</item>
         <item quantity="other">%d fichiers en téléchargement</item>
     </plurals>
     <string name="settings_allow_screenshots_title">Autoriser les captures d\'écran</string>

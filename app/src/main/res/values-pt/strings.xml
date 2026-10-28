@@ -284,6 +284,7 @@
     <string name="error_move_failed">Não foi possível mover</string>
     <plurals name="sftp_cut_pending">
         <item quantity="one">%1$d item para mover de %2$s</item>
+        <item quantity="many">%1$d itens para mover de %2$s</item>
         <item quantity="other">%1$d itens para mover de %2$s</item>
     </plurals>
     <string name="sftp_menu_download_in_background">Transferir em segundo plano</string>
@@ -362,7 +363,7 @@
     <string name="error_encryption_failed">Cifragem falhada</string>
     <string name="error_decryption_failed">Decifragem falhada</string>
     <string name="settings_backup_export_title">Exportar cópia</string>
-    <string name="settings_backup_export_subtitle">Salvar as configurações dos hosts e as configurações do app em um arquivo JSON. Senhas e chaves não são incluídas.</string>
+    <string name="settings_backup_export_subtitle">Salvar hosts e configurações como JSON no formato 8, sem senhas e chaves. Restaure somente em uma versão compatível com o formato 8.</string>
     <string name="settings_backup_export_action">Exportar</string>
     <string name="settings_backup_import_title">Importar cópia</string>
     <string name="settings_backup_import_subtitle">Carregar as configurações dos hosts e as configurações do app de um arquivo JSON. Hosts existentes com o mesmo nome serão atualizados; senhas e chaves não serão importadas.</string>
@@ -391,10 +392,12 @@
     <string name="notification_disconnect_all">Desligar tudo</string>
     <plurals name="notification_active_sessions">
         <item quantity="one">%d sessão ativa</item>
+        <item quantity="many">%d sessões ativas</item>
         <item quantity="other">%d sessões ativas</item>
     </plurals>
     <plurals name="notification_bg_downloads">
         <item quantity="one">%d ficheiro a transferir</item>
+        <item quantity="many">%d ficheiros a transferir</item>
         <item quantity="other">%d ficheiros a transferir</item>
     </plurals>
     <string name="settings_allow_screenshots_title">Permitir capturas de ecrã</string>

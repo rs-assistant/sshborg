@@ -17,6 +17,21 @@ interface HostDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(host: HostEntity): Long
 
+    @Query("UPDATE hosts SET encryptedPassword = :replacement WHERE id = :id AND encryptedPassword = :expected")
+    suspend fun replaceEncryptedPassword(id: Long, expected: String, replacement: String): Int
+
+    @Query("UPDATE hosts SET knownHostsEntry = :line WHERE id = :id AND knownHostsEntry IS NULL")
+    suspend fun pinHostKeyIfAbsent(id: Long, line: String)
+
+    @Query("UPDATE hosts SET jumpHostKeys = :replacement WHERE id = :id AND jumpHostKeys IS :expected")
+    suspend fun updateJumpHostKeys(id: Long, expected: String?, replacement: String): Int
+
+    @Query("UPDATE hosts SET sftpShowHidden = :show WHERE id = :id")
+    suspend fun updateSftpShowHidden(id: Long, show: Boolean)
+
+    @Query("UPDATE hosts SET sftpStartDir = :path WHERE id = :id")
+    suspend fun updateSftpStartDir(id: Long, path: String)
+
     @Delete
     suspend fun delete(host: HostEntity)
 

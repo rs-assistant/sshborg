@@ -18,7 +18,7 @@ module.exports = {
   badge_no_tracking: 'No tracking',
   badge_no_cloud:    'No cloud',
   badge_free:        'Free',
-  badge_android:     'Android 10+',
+  badge_android:     'Android 11+',
   badge_ios:         'iOS 16+',
 
   cta_download:   'DOWNLOAD',
@@ -49,7 +49,8 @@ module.exports = {
   security_title: '// PRIVACY FIRST, BY DESIGN',
   security_desc:  'SSHBorg never collects your data. Everything stays on your device — your credentials, your keys, your connections.',
 
-  sec_badge_keystore:   'Device hardware encryption',
+  sec_badge_keystore: "Protected credentials",
+  security_branch_notice: '<aside class="callout callout-warn" data-policy="test-branch" role="note"><p><strong>Android 11+ security-hardening test branch — not the store release. Full device/security acceptance is incomplete; use disposable credentials. The Android policy here does not describe iOS.</strong></p></aside>',
   sec_badge_analytics:  'No analytics',
   sec_badge_sdks:       'No third-party SDKs',
   sec_badge_screenshots:'Screen content protection',
@@ -247,18 +248,18 @@ chmod 600 ~/.ssh/authorized_keys</code></pre>
                 <div class="callout-label">// SERVER REQUIREMENT</div>
                 Make sure your server has <code>PubkeyAuthentication yes</code> in <code>/etc/ssh/sshd_config</code>. This is the default on most distributions, but some hardened images disable it.
             </div>
-            <h3>Encrypting stored keys and passwords</h3>
-            <p>Turn on <strong>Settings → Security → Encrypt sensitive data</strong> to store private keys and saved host passwords encrypted with a key held in the device's secure hardware — the Android Keystore, or the Keychain on iOS. It stays off until you enable it; the security tip shown at first launch points to it.</p>
-            <p>Encrypted data is bound to the device and to this installation of the app: after uninstalling, the stored keys cannot be recovered, and you would generate new ones and authorize them on your servers again. Together with an app lock, this is strongly recommended if you keep sensitive server credentials on your phone.</p>
-            <p>A key protected by a passphrase asks for it once, when you import it, and is then stored unlocked: the passphrase itself is never written to the device. A passphrase is usually reused somewhere else, while a private key is worth only itself — and a key stored next to its own passphrase would not be protected by it anyway. What protects it here is the app's private storage, <strong>Encrypt sensitive data</strong>, and the app lock. A key imported by an earlier version was stored still encrypted and cannot authenticate; the key list marks those, and they have to be imported again.</p>
+            <h3>Android test branch: protected credentials</h3>
+            <div data-platform="android-test">
+            <p data-policy="storage">Saved private keys and passwords must be encrypted with an authenticated Android Keystore key. There is no optional encryption switch. Hardware backing depends on the device.</p>
+            <p data-policy="auth">Every new SSH/SFTP connection, retry or reconnect requires fresh authorization. Each saved credential, including each jump-host credential, additionally requires its own system cryptographic confirmation. Cancellation or backgrounding rejects pending operations.</p>
+            <p data-policy="migration">Old encrypted credentials require explicit migration in Settings: authorize reading, encryption and a separate verified readback before replacement. Cancellation or failure preserves the original. Missing old keys, plaintext or damaged records require re-import or re-entry; old database pages are not thereby erased.</p>
+            <p data-policy="backup">Configuration exports exclude private keys, passwords and host-key pins. Uninstalling or clearing app data can make saved credentials inaccessible. Do not uninstall to solve a signing conflict; arrange a new device key and server access recovery separately.</p>
             <p>Two encrypted formats the app cannot open: an OpenSSL container (<code>BEGIN ENCRYPTED PRIVATE KEY</code>) and PuTTY's <code>.ppk</code>. The import says so rather than taking the key half-way. Decrypt it with the tool that created it and import it again — working on a copy, never on your only file:</p>
             <pre><code>ssh-keygen -p -N "" -f id_ed25519_copy
 openssl pkcs8 -in key.pem -out key_plain.pem</code></pre>
             <p>PuTTYgen converts a <code>.ppk</code> from <em>Conversions → Export OpenSSH key</em>.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS works the same way: the passphrase is asked once, at import, the key is stored unlocked, and the passphrase is written nowhere. It refuses one format more than Android — besides the OpenSSL container and the PuTTY <code>.ppk</code>, also the older PEM encryption (<code>Proc-Type: 4,ENCRYPTED</code>), which <code>ssh-keygen -m PEM</code> writes when given a passphrase. Decrypt such a key and import it again.
-            </div>`,
+            </div>
+            <div data-platform="ios"><p>iOS is a separate app. Android authentication, migration and backup rules above do not apply to it; consult the <a href="{{REPO_IOS}}">iOS project</a>.</p></div>`,
 
   doc_suggestions: `
             <h2>// COMMAND SUGGESTIONS</h2>
@@ -520,41 +521,22 @@ Host target
 
   doc_security: `
             <h2>// APP SECURITY</h2>
-            <h3>App lock</h3>
-            <p>Choose how the app is protected in <strong>Settings → Security → App lock</strong>: <strong>None</strong> (default), <strong>Biometric only</strong> (fingerprint or face unlock), <strong>Device lock</strong> (the device PIN, pattern, or password, alongside biometrics), or an in-app <strong>PIN or passphrase</strong>. When a lock is active, SSHBorg requires authentication before showing any host, credential, or session data. If authentication is refused, or you cancel it, the app stays on its own lock screen with a button to try again — it does not close, so the sessions you had open are still there when you unlock.</p>
-            <p>The in-app <strong>PIN or passphrase</strong> works on any device, even without biometric hardware or a system screen lock — which makes it the right choice on an Android TV. Changing or removing it asks for the current one first. There is no way to recover it if forgotten: you would have to clear the app's data or reinstall, so keep a backup of your hosts.</p>
-            <p>You can set an inactivity timeout — after that long in the background the app locks automatically.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                The lock offers <strong>None</strong>, <strong>Biometric only</strong> (Face ID or Touch ID) and <strong>Device lock</strong> (the device passcode or biometrics). There is no in-app PIN or passphrase.
-            </div>
+            <div data-platform="android-test">
+            <p data-policy="lock">A secure device screen lock and strong biometric or device PIN/pattern/password authentication are required. An app lock or in-app PIN protects the interface; it does not replace credential-decryption authorization.</p>
+            <p data-policy="storage">Saved private keys and passwords must be encrypted with an authenticated Android Keystore key. There is no optional encryption switch. Hardware backing depends on the device.</p>
+            <p data-policy="auth">Every new SSH/SFTP connection, retry or reconnect requires fresh authorization. Each saved credential, including each jump-host credential, additionally requires its own system cryptographic confirmation. Cancellation or backgrounding rejects pending operations.</p>
+            <p data-policy="migration">Old encrypted credentials require explicit migration in Settings: authorize reading, encryption and a separate verified readback before replacement. Cancellation or failure preserves the original. Missing old keys, plaintext or damaged records require re-import or re-entry; old database pages are not thereby erased.</p>
+            <p data-policy="backup">Configuration exports exclude private keys, passwords and host-key pins. Uninstalling or clearing app data can make saved credentials inaccessible. Do not uninstall to solve a signing conflict; arrange a new device key and server access recovery separately.</p>
+            <p data-policy="limits">A compromised OS or an already-authorized operation remains outside these guarantees. PIN transitions, Keystore behavior and data-preserving updates still need device acceptance; no universal hardware or device-support guarantee is made.</p>
             <h3>Screenshot protection</h3>
             <p>By default SSHBorg blocks screenshots and screen recording to prevent sensitive terminal content from leaking via the recent-apps screen or screen capture tools.</p>
             <p>If you need to take a screenshot (e.g. to share a terminal output), you can temporarily disable screenshot protection in <strong>Settings → Security → Allow screenshots</strong>.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS does not let an app block screenshots or screen recording, so there is no such setting. With an app lock enabled, SSHBorg covers its contents the moment it leaves the screen, so hosts and terminals do not show in the app switcher.
             </div>
-            <h3>Credential storage</h3>
-            <p>With <strong>Encrypt sensitive data</strong> turned on (see <a href="#ssh-keys">SSH Keys</a>), passwords and private keys are stored encrypted with a key held in the <strong>Android Keystore</strong> — hardware-backed on Android 10+ — or, on iOS, in the <strong>Keychain</strong>, restricted to this device. Credentials are never written to external storage or transmitted anywhere.</p>
-            <div class="callout callout-warn">
-                <div class="callout-label">// BACKUP NOTE</div>
-                Because the encryption key never leaves the device's secure hardware, keys <strong>cannot be restored</strong> from a cloud or device backup and will not transfer to a new phone automatically. Before switching devices, make sure to authorize a new key generated on the new device on all your servers.
-            </div>
-            <h3>The strongest setup</h3>
-            <p>Each piece above is useful on its own. Together they are as tight as the app gets, and it takes a couple of minutes:</p>
-            <ol>
-                <li>Turn on <strong>Settings → Security → Encrypt sensitive data</strong>.</li>
-                <li>Set the app lock to <strong>Biometric only</strong> — or to <strong>PIN or passphrase</strong> if you would rather not rely on the phone's biometrics.</li>
-                <li>Set the lock timeout to <strong>Immediately</strong>, or at most <strong>30 seconds</strong>.</li>
-                <li>Generate a new key in the app, with a name that tells you which device it is.</li>
-                <li>Authorize that key on your servers, and use it instead of a password.</li>
-            </ol>
-            <p>A key generated on the phone has never existed anywhere else: there is no older copy of it that might already have leaked, and nothing to clean up on another machine. One key per device also means that losing the phone costs you one line in <code>authorized_keys</code> — remove it and your other devices keep working, which is why the name is worth choosing well.</p>
-            <p>What none of this can do: if the phone itself is compromised, that key is compromised with it, whatever protects it on disk. A passphrase on the key would not save it either — anything able to read the app's storage can also read what you type. That is why SSHBorg asks for a key's passphrase once, when importing it, and stores the key unlocked instead of keeping the passphrase (see <a href="#ssh-keys">SSH Keys</a>).</p>`,
+            <div data-platform="ios"><p>iOS is a separate app. Android authentication, migration and backup rules above do not apply to it; consult the <a href="{{REPO_IOS}}">iOS project</a>.</p></div>`,
 
   doc_android_tv: `
             <h2>// ANDROID TV</h2>
+            <p data-policy="tv-auth">A secure device screen lock and strong biometric or device PIN/pattern/password authentication are required. An app lock or in-app PIN protects the interface; it does not replace credential-decryption authorization.</p>
             <p>SSHBorg runs on Android TV and Google TV. It works with the remote's D-pad, but because it is a text-heavy app, a physical keyboard makes a real difference.</p>
             <h3>Navigating with the remote</h3>
             <ul>
@@ -582,6 +564,8 @@ Host target
             <p>None of them connects to anything on its own: the only addresses SSHBorg contacts are the servers you tell it about, and sshborg.com when you tap a link. There are no analytics libraries, no advertising libraries and no trackers of any kind.</p>`,
 
   doc_backup: `
+            <div data-platform="android-test" data-backup-format="8">
+            <p data-policy="backup-format">Android test branch uses backup format 8. Exports contain configuration only, never credentials or trust pins. iOS uses a separate implementation; this format and refusal policy do not describe it.</p>
             <h2>// CONFIGURATION BACKUP</h2>
             <p>SSHBorg can export and import host configurations and app settings as a JSON file. This lets you transfer your server list to another device or keep a portable backup of your setup.</p>
             <div class="callout callout-warn">
@@ -596,14 +580,14 @@ Host target
                 <li>Hosts whose <strong>label</strong> matches an existing entry are <strong>updated</strong>.</li>
                 <li>Hosts with a new label are <strong>added</strong>.</li>
                 <li>Hosts not present in the file are <strong>left unchanged</strong>.</li>
-                <li>An updated host keeps its saved password, key and accepted host key — the backup never carries them.</li>
-                <li>A host with no key is linked to a key whose name matches the exported <code>keyLabel</code>, if one exists; otherwise the field is ignored.</li>
+                <li data-policy="pin-retention">An updated host retains its current credentials. Host-key trust is retained only for an unchanged hostname/port; a changed endpoint requires fresh verification.</li>
+                <li data-policy="key-reference">A named SSH key must resolve uniquely before import. Missing or ambiguous keys reject the import instead of silently selecting password authentication.</li>
                 <li>An updated host keeps the usage data this device already has — last connection, counter and manual position; the file only fills in what is missing.</li>
-</ul>
+            </ul>
             <h3>JSON format</h3>
             <p>The export file is a plain JSON object. You can also create it by hand to bulk-import a server list from another source.</p>
             <pre><code>{
-  "version": 7,
+  "version": 8,
   "exported_at": "2026-05-14T10:00:00Z",
   "groups": [
     { "name": "Production", "color": -1754827, "position": 0 }
@@ -617,7 +601,7 @@ Host target
       "agentForwarding": false,
       "jumpMode":        "simple",
       "jumpHosts":       null,
-      "jumpHostIdList":  null,
+      "jumpHostLabels": [],
       "portForwardings": null,
       "sftpStartMode":   "last",
       "sftpStartDir":    null,
@@ -646,14 +630,14 @@ Host target
                 <li><code>port</code> — SSH port. Defaults to <code>22</code>.</li>
                 <li><code>username</code> — login user. <strong>Required.</strong></li>
                 <li><code>agentForwarding</code> — <code>true</code> to enable SSH agent forwarding. Defaults to <code>false</code>.</li>
-                <li><code>jumpMode</code> — <code>"simple"</code> (use the <code>jumpHosts</code> text) or <code>"host_list"</code> (use SSHBorg internal host IDs). Use <code>"simple"</code> when creating the file manually.</li>
+                <li><code>jumpMode</code> — <code>simple</code> / <code>host_list</code>. For host_list, use ordered jumpHostLabels (host names), never installation-local row IDs. Missing or ambiguous hops reject the whole import; groups and hosts are restored atomically.</li>
                 <li><code>jumpHosts</code> — comma-separated jump hosts in <code>[user@]host[:port]</code> format. Only used when <code>jumpMode</code> is <code>"simple"</code>.</li>
                 <li><code>portForwardings</code> — newline-separated local port-forwarding rules in SSH <code>-L</code> syntax, e.g. <code>"8080:localhost:8080"</code>.</li>
                 <li><code>sftpStartMode</code> — SFTP starting directory: <code>"last"</code> (remember last visited), <code>"fixed"</code> (always use <code>sftpStartDir</code>), <code>"home"</code> (server home). Defaults to <code>"last"</code>.</li>
                 <li><code>sftpStartDir</code> — path to use when <code>sftpStartMode</code> is <code>"fixed"</code>.</li>
                 <li><code>sftpShowHidden</code> — <code>true</code> to show hidden files (dotfiles, names starting with ".") in the SFTP browser for this host. Defaults to <code>false</code>.</li>
                 <li><code>allowLegacyCiphers</code> — <code>true</code> to enable the legacy cipher algorithms described above. Defaults to <code>false</code>.</li>
-                <li><code>keyLabel</code> — name of the SSH key this host uses. On import, if a key with this name exists it is linked to the host; otherwise the field is ignored. The key itself is never included in the backup.</li>
+                <li><code>keyLabel</code> — A named SSH key must resolve uniquely before import. Missing or ambiguous keys reject the import instead of silently selecting password authentication.</li>
                 <li><code>group</code> — name of the group the host belongs to. Groups are listed in the top-level <code>groups</code> array with their <code>name</code> and <code>color</code> (ARGB as a signed 32-bit integer). If a host references a group that is not in the array, it is created automatically with a default color — so you can omit the array entirely when writing the file by hand.</li>
                 <li><code>color</code> — optional per-host color (ARGB as a signed 32-bit integer). It overrides the group color.</li>
                             <li><code>position</code> — place of the host in the manual list order, counted inside its own section (the ungrouped block, or one group). Omit it and the host is appended at the end. Groups carry a <code>position</code> of their own in the <code>groups</code> array.</li>
@@ -663,7 +647,7 @@ Host target
             <div class="callout callout-info">
                 <div class="callout-label">// OPTIONAL FIELDS</div>
                 All fields except <code>label</code>, <code>hostname</code>, and <code>username</code> are optional. Omitted fields fall back to their defaults.
-            </div>`,
+            </div>            </div>`,
 
   // ── changelog.html ─────────────────────────────────────────────────────────
   nav_changelog:               'Changelog',

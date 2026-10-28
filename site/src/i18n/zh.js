@@ -18,7 +18,7 @@ module.exports = {
   badge_no_tracking: '无跟踪',
   badge_no_cloud:    '无云端',
   badge_free:        '免费',
-  badge_android:     'Android 10+',
+  badge_android:     'Android 11+',
   badge_ios: 'iOS 16+',
 
   cta_download:   '下载',
@@ -49,7 +49,8 @@ module.exports = {
   security_title: '// 隐私优先，由设计保障',
   security_desc:  'SSHBorg 从不收集您的数据。一切留在您的设备上——您的凭据、密钥和连接。',
 
-  sec_badge_keystore:   '设备硬件加密',
+  sec_badge_keystore: "受保护的凭据",
+  security_branch_notice: '<aside class="callout callout-warn" data-policy="test-branch" role="note"><p><strong>Android 11+ 安全强化测试分支，并非商店正式版。完整设备与安全验收尚未完成，请只用测试凭据。此处的 Android 政策不代表 iOS。</strong></p></aside>',
   sec_badge_analytics:  '无分析追踪',
   sec_badge_sdks:       '无第三方 SDK',
   sec_badge_screenshots:'屏幕内容保护',
@@ -246,18 +247,18 @@ chmod 600 ~/.ssh/authorized_keys</code></pre>
                 <div class="callout-label">// 服务器要求</div>
                 确保服务器的 <code>/etc/ssh/sshd_config</code> 中有 <code>PubkeyAuthentication yes</code>。大多数发行版默认启用，但部分加固镜像可能禁用此选项。
             </div>
-            <h3>加密存储的密钥和密码</h3>
-            <p>开启 <strong>设置 → 安全 → 加密敏感数据</strong>，即可使用保存在设备安全硬件中的密钥（Android 上为 Android 密钥库，iOS 上为钥匙串）加密存储私钥和已保存的主机密码。在您启用之前该选项保持关闭；首次启动时显示的安全提示会指向它。</p>
-            <p>加密数据与设备以及本次安装的应用绑定：卸载应用后，已存储的密钥无法恢复，您需要生成新密钥并重新在服务器上授权。如果您在手机上保存了敏感的服务器凭据，强烈建议同时启用应用锁和此选项。</p>
-            <p>受密码短语保护的密钥只在导入时询问一次，之后以已解锁的形式保存：密码短语本身不会写入设备。密码短语通常还会用在别处，而私钥只代表它自己——况且密钥与自己的密码短语存放在一起，本来也谈不上被它保护。在这里保护密钥的是应用的私有存储、<strong>加密敏感数据</strong>和应用锁。由较早版本导入的密钥仍处于加密状态，无法完成认证；列表会标出这些密钥，需要重新导入。</p>
+            <h3>Android 测试分支：受保护的凭据</h3>
+            <div data-platform="android-test">
+            <p data-policy="storage">保存的私钥和密码必须由需要认证的 Android Keystore 密钥加密，没有可选的加密开关。是否有硬件保护取决于设备。</p>
+            <p data-policy="auth">每次新的 SSH／SFTP 连接、重试或重连都需要新的授权。每个已保存的凭据，包括每一跳的凭据，还需要单独的系统密码学操作确认。取消或切到后台会拒绝尚未完成的操作。</p>
+            <p data-policy="migration">旧加密凭据需在设置中明确选择迁移：分别授权读取、加密及独立解密回读验证，成功后才替换。取消或失败保留原记录。旧密钥缺失、明文或损坏记录需重新导入或输入；拒绝使用并不表示旧数据库页已被擦除。</p>
+            <p data-policy="backup">配置导出不包含私钥、密码或已保存的主机密钥指纹。卸载或清除应用数据可能使凭据无法恢复。不要为解决签章冲突而卸载；请另行安排新设备密钥与服务器访问恢复。</p>
             <p>有两种加密格式应用打不开：OpenSSL 的容器（<code>BEGIN ENCRYPTED PRIVATE KEY</code>）和 PuTTY 的 <code>.ppk</code>。导入时会明确说明，而不会把密钥导入一半。请用创建它的工具解密后重新导入——在副本上操作，不要动你唯一的那份文件：</p>
             <pre><code>ssh-keygen -p -N "" -f id_ed25519_copy
 openssl pkcs8 -in key.pem -out key_plain.pem</code></pre>
             <p>PuTTYgen 可通过 <em>Conversions → Export OpenSSH key</em> 转换 <code>.ppk</code>。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS 的做法相同：导入时只询问一次密码短语，密钥以解锁状态保存，密码短语不写入任何地方。iOS 比 Android 多拒绝一种格式：除了 OpenSSL 容器和 PuTTY 的 <code>.ppk</code>，还有旧式 PEM 加密（<code>Proc-Type: 4,ENCRYPTED</code>），即 <code>ssh-keygen -m PEM</code> 带密码短语时写出的格式。请先解密这类密钥再重新导入。
-            </div>`,
+            </div>
+            <div data-platform="ios"><p>iOS 是独立应用。以上 Android 认证、迁移与备份规则不适用于 iOS；请查看 <a href="{{REPO_IOS}}">iOS 项目</a>。</p></div>`,
 
   doc_suggestions: `
             <h2>// 命令建议</h2>
@@ -519,41 +520,22 @@ Host target
 
   doc_security: `
             <h2>// 应用安全</h2>
-            <h3>应用锁</h3>
-            <p>在 <strong>设置 → 安全 → 应用锁</strong> 中选择保护方式：<strong>无</strong>（默认）、<strong>仅生物识别</strong>（指纹或人脸解锁）、<strong>设备锁</strong>（除生物识别外，还可使用设备的 PIN、图案或密码），或应用内 <strong>PIN 或密码短语</strong>。启用锁定后，SSHBorg 在显示任何主机、凭据或会话数据前都会要求验证。如果验证被拒绝或你取消了验证，应用会留在自己的锁定界面上，并提供一个重试按钮——它不会退出，因此解锁后原先打开的会话仍在。</p>
-            <p>应用内 <strong>PIN 或密码短语</strong> 可在任何设备上使用，即使没有生物识别硬件或系统屏幕锁——因此它是 Android TV 上的正确选择。更改或移除时会先要求输入当前的。忘记后无法找回：你需要清除应用数据或重新安装，因此请保留主机的备份。</p>
-            <p>您可以设置不活动超时——在后台等待该时长后，应用会自动锁定。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                应用锁提供<strong>无</strong>、<strong>仅生物识别</strong>（面容 ID 或触控 ID）和<strong>设备锁</strong>（设备密码或生物识别）。没有应用内 PIN 或密码短语。
-            </div>
+            <div data-platform="android-test">
+            <p data-policy="lock">需要安全锁屏，以及强生物识别或设备 PIN／图案／密码认证。应用锁或应用内 PIN 保护界面，但不能代替凭据解密授权。</p>
+            <p data-policy="storage">保存的私钥和密码必须由需要认证的 Android Keystore 密钥加密，没有可选的加密开关。是否有硬件保护取决于设备。</p>
+            <p data-policy="auth">每次新的 SSH／SFTP 连接、重试或重连都需要新的授权。每个已保存的凭据，包括每一跳的凭据，还需要单独的系统密码学操作确认。取消或切到后台会拒绝尚未完成的操作。</p>
+            <p data-policy="migration">旧加密凭据需在设置中明确选择迁移：分别授权读取、加密及独立解密回读验证，成功后才替换。取消或失败保留原记录。旧密钥缺失、明文或损坏记录需重新导入或输入；拒绝使用并不表示旧数据库页已被擦除。</p>
+            <p data-policy="backup">配置导出不包含私钥、密码或已保存的主机密钥指纹。卸载或清除应用数据可能使凭据无法恢复。不要为解决签章冲突而卸载；请另行安排新设备密钥与服务器访问恢复。</p>
+            <p data-policy="limits">系统已被攻破或操作已经获得授权的情形不在这些保证范围内。PIN 界面切换、Keystore 行为与保留数据更新仍需设备验收，不保证所有设备都有硬件保护或完全相同的行为。</p>
             <h3>截图保护</h3>
             <p>SSHBorg 默认阻止截图和录屏，防止敏感的终端内容通过最近应用界面或截屏工具泄露。</p>
             <p>如果需要截图（例如分享终端输出），可在 <strong>设置 → 安全 → 允许截图</strong> 中临时禁用截图保护。</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS 不允许应用阻止截屏或录屏，因此没有此设置。启用应用锁后，SSHBorg 一离开屏幕就会遮盖其内容，主机和终端不会出现在 App 切换器中。
             </div>
-            <h3>凭据存储</h3>
-            <p>开启<strong>加密敏感数据</strong>后（参见<a href="#ssh-keys">SSH 密钥</a>），密码和私钥会使用保存在 <strong>Android 密钥库</strong>（Android 10+ 上由硬件支持）或 iOS <strong>钥匙串</strong>中、仅限本设备的密钥加密存储。凭据永不写入外部存储，也不会传输到任何地方。</p>
-            <div class="callout callout-warn">
-                <div class="callout-label">// 备份说明</div>
-                由于加密密钥永远不会离开设备的安全硬件，密钥<strong>无法</strong>从云备份或设备备份中恢复，也不会自动迁移到新手机。更换设备前，请确保在新设备上生成新密钥并在所有服务器上授权。
-            </div>
-            <h3>最安全的设置</h3>
-            <p>上面每一项单独都有用。合在一起，就是这个应用能做到的最严密的配置，只需两分钟：</p>
-            <ol>
-                <li>打开<strong>设置 → 安全 → 加密敏感数据</strong>。</li>
-                <li>把应用锁设为<strong>仅生物识别</strong>——若不愿依赖手机的生物识别，则设为<strong>PIN 或密码短语</strong>。</li>
-                <li>把锁定超时设为<strong>立即</strong>，最多 <strong>30 秒</strong>。</li>
-                <li>在应用内生成一把新密钥，名字要能看出它属于哪台设备。</li>
-                <li>把该密钥授权到你的服务器，用它代替密码。</li>
-            </ol>
-            <p>在手机上生成的密钥从未在别处存在过：没有更早的副本可能已经泄露，也没有别的机器需要清理。一台设备一把密钥还意味着，丢了手机只不过是 <code>authorized_keys</code> 里的一行——删掉它，其他设备照常可用。这也正是名字值得好好取的原因。</p>
-            <p>这些措施都做不到的一点：如果手机本身被攻破，那把密钥也随之失守，无论它在磁盘上受什么保护。给密钥加密码短语同样救不了它——能读取应用存储的东西，也能读取你键入的内容。这正是 SSHBorg 只在导入时询问一次密钥的密码短语、并以解锁状态保存密钥而不保存密码短语的原因（见<a href="#ssh-keys">SSH 密钥</a>）。</p>`,
+            <div data-platform="ios"><p>iOS 是独立应用。以上 Android 认证、迁移与备份规则不适用于 iOS；请查看 <a href="{{REPO_IOS}}">iOS 项目</a>。</p></div>`,
 
   doc_android_tv: `
             <h2>// ANDROID TV</h2>
+            <p data-policy="tv-auth">需要安全锁屏，以及强生物识别或设备 PIN／图案／密码认证。应用锁或应用内 PIN 保护界面，但不能代替凭据解密授权。</p>
             <p>SSHBorg 可在 Android TV 和 Google TV 上运行。可用遥控器的方向键操作，但由于这是一款文字较多的应用，外接实体键盘会带来很大便利。</p>
             <h3>使用遥控器导航</h3>
             <ul>
@@ -581,6 +563,8 @@ Host target
             <p>它们都不会自行连接任何地方：SSHBorg 只会连接你指定的服务器，以及你点击链接时的 sshborg.com。没有任何统计库、广告库或追踪器。</p>`,
 
   doc_backup: `
+            <div data-platform="android-test" data-backup-format="8">
+            <p data-policy="backup-format">Android 测试分支使用备份格式 8，只导出配置，不包含凭据或受信任的主机密钥。iOS 有独立实现，此格式与拒绝规则不代表 iOS。</p>
             <h2>// 配置备份</h2>
             <p>SSHBorg 可以将主机配置和应用设置导出并导入为 JSON 文件。这样您可以将服务器列表转移到另一台设备，或保留一份可移植的配置备份。</p>
             <div class="callout callout-warn">
@@ -595,14 +579,14 @@ Host target
                 <li><strong>名称</strong>与现有条目匹配的主机将被<strong>更新</strong>。</li>
                 <li>具有新名称的主机将被<strong>添加</strong>。</li>
                 <li>文件中不存在的主机保持<strong>不变</strong>。</li>
-                <li>更新已有主机时会保留其已保存的密码、密钥和已接受的主机密钥——备份从不包含这些内容。</li>
-                <li>没有密钥的主机会关联到名称与导出的 <code>keyLabel</code> 匹配的密钥（若存在）；否则忽略该字段。</li>
+                <li data-policy="pin-retention">更新主机时保留当前凭据；只有主机名和端口未变时才保留主机密钥信任，目标改变需重新验证。</li>
+                <li data-policy="key-reference">导入前，按名称指定的 SSH 密钥必须能唯一对应。缺少或重名会拒绝导入，不会静默降级为密码认证。</li>
                 <li>被更新的主机会保留本设备已有的使用数据——最后连接时间、计数和手动位置；文件只补上缺少的部分。</li>
-</ul>
+            </ul>
             <h3>JSON 格式</h3>
             <p>导出文件是一个标准 JSON 对象。您也可以手动创建它，从其他来源批量导入服务器列表。</p>
             <pre><code>{
-  "version": 7,
+  "version": 8,
   "exported_at": "2026-05-14T10:00:00Z",
   "groups": [
     { "name": "生产", "color": -1754827, "position": 0 }
@@ -616,7 +600,7 @@ Host target
       "agentForwarding": false,
       "jumpMode":        "simple",
       "jumpHosts":       null,
-      "jumpHostIdList":  null,
+      "jumpHostLabels": [],
       "portForwardings": null,
       "sftpStartMode":   "last",
       "sftpStartDir":    null,
@@ -645,14 +629,14 @@ Host target
                 <li><code>port</code> — SSH 端口。默认值：<code>22</code>。</li>
                 <li><code>username</code> — 登录用户名。<strong>必填。</strong></li>
                 <li><code>agentForwarding</code> — <code>true</code> 启用 SSH 代理转发。默认值：<code>false</code>。</li>
-                <li><code>jumpMode</code> — <code>"simple"</code>（使用 <code>jumpHosts</code> 文本）或 <code>"host_list"</code>（使用 SSHBorg 内部主机 ID）。手动创建文件时请使用 <code>"simple"</code>。</li>
+                <li><code>jumpMode</code> — <code>simple</code> / <code>host_list</code>. host_list 使用有序的 jumpHostLabels（主机名称），不用本机数据库行 ID。缺少或重名的跳板会拒绝整批导入；主机与群组以原子事务还原。</li>
                 <li><code>jumpHosts</code> — 以逗号分隔的跳板机列表，格式为 <code>[用户名@]主机[:端口]</code>。仅在 <code>jumpMode</code> 为 <code>"simple"</code> 时使用。</li>
                 <li><code>portForwardings</code> — 以换行符分隔的本地端口转发规则，使用 SSH <code>-L</code> 语法，例如 <code>"8080:localhost:8080"</code>。</li>
                 <li><code>sftpStartMode</code> — SFTP 起始目录：<code>"last"</code>（记住上次访问的目录）、<code>"fixed"</code>（始终使用 <code>sftpStartDir</code>）、<code>"home"</code>（服务器主目录）。默认值：<code>"last"</code>。</li>
                 <li><code>sftpStartDir</code> — 当 <code>sftpStartMode</code> 为 <code>"fixed"</code> 时使用的路径。</li>
                 <li><code>sftpShowHidden</code> — <code>true</code> 时在该主机的 SFTP 浏览器中显示隐藏文件（点文件，以 "." 开头的名称）。默认 <code>false</code>。</li>
                 <li><code>allowLegacyCiphers</code> — 设为 <code>true</code> 可启用上文介绍的旧式加密算法。默认为 <code>false</code>。</li>
-                <li><code>keyLabel</code> — 此主机所用 SSH 密钥的名称。导入时，如果存在同名密钥，则关联到该主机；否则忽略该字段。密钥本身从不包含在备份中。</li>
+                <li><code>keyLabel</code> — 导入前，按名称指定的 SSH 密钥必须能唯一对应。缺少或重名会拒绝导入，不会静默降级为密码认证。</li>
                 <li><code>group</code> — 主机所属分组的名称。分组列在顶层的 <code>groups</code> 数组中，包含 <code>name</code> 和 <code>color</code>（ARGB，带符号 32 位整数）。如果主机引用的分组不在数组中，会用默认颜色自动创建 — 因此手写文件时可以完全省略该数组。</li>
                 <li><code>color</code> — 主机的可选颜色（ARGB，带符号 32 位整数），会覆盖分组颜色。</li>
                             <li><code>position</code> — 主机在手动排序中的位置，按其所属区块（未分组区块或某个分组）内部计数。省略则排到末尾。分组在 <code>groups</code> 数组中也有各自的 <code>position</code>。</li>
@@ -662,7 +646,7 @@ Host target
             <div class="callout callout-info">
                 <div class="callout-label">// 可选字段</div>
                 除 <code>label</code>、<code>hostname</code> 和 <code>username</code> 外，所有字段均为可选。省略的字段将使用默认值。
-            </div>`,
+            </div>            </div>`,
 
   // ── changelog.html ─────────────────────────────────────────────────────────
   nav_changelog:               '更新日志',

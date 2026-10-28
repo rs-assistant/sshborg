@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.sshborg.data.AppLockManager
+import com.sshborg.data.ConnectionAuthorization
 import com.sshborg.data.AppPreferences
 import com.sshborg.ui.lock.AppLockScreen
 import com.sshborg.ui.lock.SystemLockScreen
@@ -76,9 +77,15 @@ class MainActivity : AppCompatActivity() {
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
 
+    override fun onDestroy() {
+        ConnectionAuthorization.unregister(this)
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        ConnectionAuthorization.register(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED

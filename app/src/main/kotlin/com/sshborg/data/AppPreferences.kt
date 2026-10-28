@@ -67,7 +67,7 @@ class AppPreferences(private val context: Context) {
         }
 
     val keystoreEncryption: Flow<Boolean> =
-        context.dataStore.data.map { it[Keys.KEYSTORE_ENCRYPTION] ?: false }
+        context.dataStore.data.map { true }
 
     val confirmExit: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.CONFIRM_EXIT] ?: false }
@@ -90,8 +90,9 @@ class AppPreferences(private val context: Context) {
         lockSnapshot()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun setKeystoreEncryption(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.KEYSTORE_ENCRYPTION] = enabled }
+        context.dataStore.edit { it[Keys.KEYSTORE_ENCRYPTION] = true }
     }
 
     suspend fun setConfirmExit(enabled: Boolean) {
