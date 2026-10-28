@@ -10,6 +10,8 @@ For this branch's manually published debug tablet tests (not the production trai
 follow [fixed tablet-test signing](tablet-test-signing.md). The dedicated signing secrets and
 public certificate pin must be configured first; missing/mismatched keys must stop publication.
 Do not uninstall an earlier differently signed test app to bypass an update failure.
+The [non-debug personal variant](personal-build.md) uses the same tablet package and dedicated
+test signer, not the production package/key. It is a separate opt-in prerelease, not this store train.
 
 ## 1. Before the train
 

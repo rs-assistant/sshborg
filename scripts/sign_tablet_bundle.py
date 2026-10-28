@@ -10,13 +10,15 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from tablet_release import (APKS, PAYLOADS, certificate_pin, digest, require_dispatch,
-                            require_stable_signing, verify_apk_certificate, verify_bundle)
+from tablet_release import (apk_names, payload_names, certificate_pin, digest, require_dispatch,
+                            require_stable_signing, verify_apk_certificate, verify_bundle,
+                            verify_personal_bundle)
 
 
 def sign_bundle(root, env):
     require_dispatch(env)
     info, _ = verify_bundle(root, env)
+    verify_personal_bundle(root, env)
     pin = certificate_pin(env)
     encoded = env.get("TABLET_TEST_KEYSTORE_B64", "")
     password = env.get("TABLET_TEST_STORE_PASSWORD", "")
@@ -41,7 +43,7 @@ def sign_bundle(root, env):
             stream.write(key)
         command_env = {**os.environ, "TABLET_TEST_STORE_PASSWORD": password}
         command_env.pop("TABLET_TEST_KEYSTORE_B64", None)
-        for name in APKS:
+        for name in apk_names(env):
             command = [tool, "sign", "--ks", str(keystore),
                        "--ks-key-alias", "sshborg-tablet-test",
                        "--ks-pass", "env:TABLET_TEST_STORE_PASSWORD",
@@ -55,13 +57,14 @@ def sign_bundle(root, env):
                 raise ValueError("Tablet-test APK signing failed; refusing publication") from error
             verify_apk_certificate(private / name, env)
 
-        # Check both APKs before replacing either one; only public certificate metadata is kept.
-        for name in APKS:
+        # Check every output before replacing originals; keep only public signing metadata.
+        verify_personal_bundle(private, env)
+        for name in apk_names(env):
             (private / name).replace(root / name)
         info["signing"] = {"kind": "stable-tablet-test", "certificate_sha256": pin}
         (root / "build-info.json").write_text(json.dumps(info, indent=2) + "\n")
         (root / "SHA256SUMS").write_text("".join(
-            f"{digest(root / name)}  {name}\n" for name in PAYLOADS))
+            f"{digest(root / name)}  {name}\n" for name in payload_names(env)))
         require_stable_signing(root, info, env)
         verify_bundle(root, env)
     print("Verified stable tablet-test signer:", pin)

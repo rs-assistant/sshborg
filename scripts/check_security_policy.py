@@ -91,6 +91,10 @@ def check_sources(sources):
         r"bundle\s*\{\s*language\s*\{\s*enableSplit\s*=\s*false", s["build"])))
     require("Android 11 minimum and backups disabled", "minSdk = 30" in s["build"] and
             s["build"].count('manifestPlaceholders["allowBackup"] = "false"') == 2)
+    personal = s["build"].partition('create("personal") {')[2].split("\n        }", 1)[0]
+    require("personal build preserves tablet identity without debug or local signing",
+            all(token in personal for token in ('initWith(getByName("release"))',
+                'applicationIdSuffix = ".debug"', 'isDebuggable = false', 'signingConfig = null')))
     require("encrypted-only key persistence", "privateKeyPem = priv" not in s["key_vm"] and
             "privateKeyPem = imported.pem" not in s["key_vm"] and "privateKeyPem =" not in s["key_write"] and
             "persistEncryptedKey(" in s["key_vm"] and "ProtectedCredentials::encrypt" in s["key_vm"])
@@ -149,6 +153,10 @@ def check_sources(sources):
             "python3 scripts/check_tablet_signing.py --apksigner" in before_publish)
     require("Android lint remains enabled before artifact publication",
             "./gradlew --no-daemon lintDebug assembleDebug assembleDebugAndroidTest" in before_publish)
+    require("non-debug personal APK is compiled linted and actually inspected before signing",
+            "./gradlew --no-daemon lintPersonal assemblePersonal" in before_publish and
+            "python3 scripts/check_personal_apk.py" in before_publish and
+            "--variant personal --aapt2" in before_publish)
     require("prerelease is opt-in and build-gated", bool(separator) and "default: false" in before_publish and
             "needs: build-and-test" in publish and
             "github.event_name == 'workflow_dispatch' && inputs.publish_tablet_test" in publish and

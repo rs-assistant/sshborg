@@ -23,6 +23,10 @@ encrypted credentials require explicit migration in Settings; plaintext records 
 re-import or re-entry. See the [security implementation and device-acceptance status](docs/security-hardening-plan.md)
 before installing this unreleased branch with real credentials.
 
+For long-term personal use of the existing tablet-test installation, see the
+[non-debug personal build and update checklist](docs/personal-build.md). It retains the
+tablet package rather than replacing or impersonating the store app.
+
 ## Building
 
 ```bash

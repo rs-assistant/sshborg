@@ -13,7 +13,8 @@
 
 ## 相容性與資料邊界
 
-- 此金鑰只簽署 `com.sshborg.debug` 的平板測試版與對應 device-test APK，不是正式商店金鑰。
+- 此金鑰只簽署 `com.sshborg.debug` 的平板 debug 測試版、對應 device-test APK，以及
+  同套件的非 debug `personal` 自用驗收版，不是正式商店金鑰；見 [自用建置](personal-build.md)。
 - 已發布的 `tablet-test-39755214534-1` 與 `tablet-test-39831417145-1` 使用不同的
   臨時 CI 簽章。新的固定金鑰不能讓它們突然支援覆蓋更新，APK 也無法還原舊私有簽署金鑰。
 - 保留平板上的舊 app 與資料；不要為了安裝而解除安裝、清除資料或改動 Android Keystore。
@@ -72,6 +73,12 @@ keytool -list -v -keystore tablet-test.p12 -alias sshborg-tablet-test
   篡改拒絕，未部署到遠端前不應宣稱已在 CI 執行；此步驟不接觸 repo 簽署 Secrets。
 - 只有指定測試分支的手動 `publish_tablet_test=true` 才進入獨立 publisher job。
   金鑰在全部 Gradle／測試完成之後才出現，不會提供給 PR、Gradle daemon 或建置 cache。
+- 新的 `tablet_build_variant` 選擇預設仍為 `debug`；明確選 `personal` 才封裝單一
+  `app-personal.apk`，使用獨立 `personal-test-<run>-<attempt>` prerelease tag。
+  兩種流程都必須核對同一公開憑證 pin；無效或不相符的 variant 拒絕簽署／發布。
+  personal APK 在無秘密的建置 job 保持未簽署，不可直接拿 Actions artifact 安裝。
+  publisher 在接觸金鑰檔之前、重簽輸出及發布前以 aapt2 檢查實際 APK：同套件、版本碼下限、
+  API 30、非 debuggable／testOnly、關閉 shell profiling 與備份，且沒有 Compose tooling component。
 - publisher 先核對來源 commit／run、零失敗／零跳過與原附件 checksum，再在 runner
   私有暫存目錄解碼金鑰，以 owner-only 權限保存；兩個 APK 都重簽並核對憑證。
 - 私有暫存目錄在成功或例外離開時清除；不是記憶體或儲存媒體安全抹除的保證。

@@ -10,6 +10,8 @@ import tablet_release as release
 
 
 class TabletReleaseTest(unittest.TestCase):
+    variant = "debug"
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="sshborg-release-test-")
         self.addCleanup(self.tmp.cleanup)
@@ -18,14 +20,21 @@ class TabletReleaseTest(unittest.TestCase):
                         GITHUB_REPOSITORY=release.REPO, GITHUB_SHA="a" * 40,
                         GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1",
                         TABLET_TEST_CERT_SHA256="b" * 64, APKSIGNER="fixture-apksigner")
+        self.env.update(TABLET_BUILD_VARIANT=self.variant, AAPT2="fixture-aapt2")
+        self.apks, self.payloads = release.apk_names(self.env), release.payload_names(self.env)
         self.info = dict(commit="a" * 40, run_id="123", run_attempt="1",
                          jvm=dict(tests=179, failures=0, errors=0, skipped=0), device_acceptance="NOT EXECUTED",
                          signing=dict(kind="stable-tablet-test", certificate_sha256="b" * 64))
+        if self.variant == "personal":
+            self.info["build_variant"] = "personal"
+            inspector = patch("tablet_release.check_apk")
+            self.inspector = inspector.start()
+            self.addCleanup(inspector.stop)
         self.verifier = patch("tablet_release.subprocess.run", return_value=SimpleNamespace(
             stdout="Signer #1 certificate SHA-256 digest: " + "b" * 64))
         self.mock_verifier = self.verifier.start()
         self.addCleanup(self.verifier.stop)
-        for name in release.APKS:
+        for name in self.apks:
             (self.root / name).write_bytes(b"disposable test fixture")
         self.write_info()
         self.calls = []
@@ -36,7 +45,7 @@ class TabletReleaseTest(unittest.TestCase):
     def write_info(self):
         (self.root / "build-info.json").write_text(json.dumps(self.info))
         (self.root / "SHA256SUMS").write_text("".join(
-            f"{release.digest(self.root / name)}  {name}\n" for name in release.PAYLOADS))
+            f"{release.digest(self.root / name)}  {name}\n" for name in self.payloads))
 
     def api(self, endpoint, data=None):
         self.calls.append((endpoint, data))
@@ -72,7 +81,7 @@ class TabletReleaseTest(unittest.TestCase):
         self.assertEqual([], self.calls)
 
     def test_local_tampering_is_refused_before_any_remote_write(self):
-        (self.root / release.APKS[0]).write_bytes(b"changed fixture")
+        (self.root / self.apks[0]).write_bytes(b"changed fixture")
         with self.assertRaises(ValueError):
             self.publish()
         self.assertEqual([], self.calls)
@@ -133,8 +142,8 @@ class TabletReleaseTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.verify_bundle(self.root, self.env)
         (self.root / "extra.txt").unlink()
-        (self.root / release.APKS[0]).unlink()
-        (self.root / release.APKS[0]).symlink_to(self.root / release.APKS[1])
+        (self.root / self.apks[0]).unlink()
+        (self.root / self.apks[0]).symlink_to(self.root / "build-info.json")
         with self.assertRaises(ValueError):
             release.verify_bundle(self.root, self.env)
 
@@ -148,9 +157,33 @@ class TabletReleaseTest(unittest.TestCase):
         _, notes = release.release_notes(info, checksums, self.env)
         self.assertIn(self.env["GITHUB_SHA"], notes)
         self.assertIn("尚未完成真機驗收", notes)
-        self.assertIn(checksums[release.APKS[0]], notes)
+        self.assertIn(checksums[self.apks[0]], notes)
         self.assertIn(self.env["TABLET_TEST_CERT_SHA256"], notes)
         self.assertIn("請勿為了安裝而解除安裝或清除資料", notes)
+
+    def test_unknown_or_mismatched_variant_is_refused_before_remote_writes(self):
+        for variant in ("other", "../personal", "personal" if self.variant == "debug" else "debug"):
+            with self.subTest(variant=variant), self.assertRaises(ValueError):
+                release.publish(self.root, {**self.env, "TABLET_BUILD_VARIANT": variant}, api=self.api)
+        self.assertEqual([], self.calls)
+
+
+class PersonalReleaseTest(TabletReleaseTest):
+    variant = "personal"
+
+    def test_compiled_manifest_rejection_prevents_any_remote_write(self):
+        self.inspector.side_effect = ValueError("fixture is debuggable")
+        with self.assertRaises(ValueError):
+            self.publish()
+        self.assertEqual([], self.calls)
+
+    def test_personal_name_and_notes_do_not_claim_debug_or_production_release(self):
+        self.publish()
+        data = next(data for _, data in self.calls if data and data.get("tag_name"))
+        self.assertEqual("personal-test-123-1", data["tag_name"])
+        self.assertIn("app-personal.apk", data["body"])
+        self.assertIn("非 R8 裝置驗收", data["body"])
+        self.assertNotIn("app-debug-androidTest.apk", data["body"])
 
 
 if __name__ == "__main__":

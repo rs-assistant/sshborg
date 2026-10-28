@@ -41,6 +41,18 @@ class SecurityPolicyTest(unittest.TestCase):
     def test_language_splitting_cannot_break_offline_locale_switching(self):
         self.assertTrue(self.mutated("build", "enableSplit = false", "enableSplit = true"))
 
+    def test_personal_identity_non_debug_and_isolated_signing_cannot_be_removed(self):
+        for old, new in (('initWith(getByName("release"))', 'initWith(getByName("debug"))'),
+                         ('isDebuggable = false', 'isDebuggable = true'),
+                         ('signingConfig = null', 'signingConfig = signingConfigs.getByName("debug")'),
+                         ('applicationIdSuffix = ".debug"', 'applicationIdSuffix = ".other"')):
+            with self.subTest(old=old):
+                self.assertTrue(self.mutated("build", old, new))
+        for token in ("lintPersonal assemblePersonal", "python3 scripts/check_personal_apk.py",
+                      "--variant personal --aapt2"):
+            with self.subTest(token=token):
+                self.assertTrue(self.mutated("workflow", token, "REMOVED"))
+
     def test_plaintext_key_persistence_is_detected(self):
         self.assertTrue(self.mutated("key_write", "package com.sshborg.ui.keys",
                                      "package com.sshborg.ui.keys\n// privateKeyPem = priv"))

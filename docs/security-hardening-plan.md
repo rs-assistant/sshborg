@@ -10,6 +10,9 @@ The [2026-10-27 non-device validation](non-device-validation-2026-10-27.md) reco
 local signing-regression coverage, build/test results, fixed translation lint errors, and remaining warnings.
 The [Lint triage follow-up](lint-triage-2026-10-27.md) adds explicit backup/transfer exclusions,
 offline bundle language availability, and missing plural forms, reducing local warnings from 50 to 36.
+The [personal-build closeout](personal-build.md) adds a non-debug/R8 build that retains the
+installed tablet package and fixed signer. It does not change authentication or claim new
+device acceptance; its local implementation is not evidence of remote deployment/publication.
 
 ## Threat model
 A local attacker with an unlocked phone or an application bypass must not initiate a new SSH/SFTP connection without a fresh Android biometric or device-credential confirmation. Authentication of a UI screen is insufficient if ViewModel methods can still connect independently.

@@ -57,11 +57,11 @@ class SftpViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Subfolder inside Downloads used for all downloads.
-     * Debug builds get their own folder so they never conflict with the release app,
+     * The tablet package keeps its folder even in the non-debug personal build,
      * since Android scoped storage prevents cross-package file visibility/deletion.
      */
     val downloadFolder =
-        "${Environment.DIRECTORY_DOWNLOADS}/SSHBorg${if (BuildConfig.DEBUG) "-debug" else ""}/"
+        "${Environment.DIRECTORY_DOWNLOADS}/${com.sshborg.data.downloadDirectoryName(BuildConfig.APPLICATION_ID)}/"
 
     private val sshBorgApp      = app as SshBorgApp
     private val sessionManager  = sshBorgApp.sessionManager

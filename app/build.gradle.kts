@@ -47,6 +47,16 @@ android {
             manifestPlaceholders["allowBackup"] = "false"
             manifestPlaceholders["appLabel"] = "SSHBorg"
         }
+        create("personal") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            isDebuggable = false
+            // The existing tablet-test key is applied only in the isolated CI signer.
+            // Never use local production credentials or a generated debug key here.
+            signingConfig = null
+            matchingFallbacks += listOf("release")
+            manifestPlaceholders["appLabel"] = "SSHBorgDebug"
+        }
     }
 
     // All supported languages must remain available to the in-app locale switcher offline.

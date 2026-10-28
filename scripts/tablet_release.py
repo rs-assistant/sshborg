@@ -13,12 +13,34 @@ import subprocess
 from xml.etree import ElementTree
 from zoneinfo import ZoneInfo
 
+from check_personal_apk import check_apk
+
 REPO = "rs-assistant/sshborg"
 BRANCH = "refs/heads/security/harden-credential-storage"
 APKS = ("app-debug.apk", "app-debug-androidTest.apk")
 PAYLOADS = (*APKS, "build-info.json")
 OLD_DRAFT_ID = 420255693
 OLD_DRAFT_TAG = "tablet-test-20261022-88c4ff11"
+
+
+def build_variant(env):
+    variant = env.get("TABLET_BUILD_VARIANT", "debug")
+    if variant not in ("debug", "personal"):
+        raise ValueError("Unknown tablet build variant")
+    return variant
+
+
+def apk_names(env):
+    return ("app-personal.apk",) if build_variant(env) == "personal" else APKS
+
+
+def payload_names(env):
+    return (*apk_names(env), "build-info.json")
+
+
+def verify_personal_bundle(root, env):
+    if build_variant(env) == "personal":
+        check_apk(root / "app-personal.apk", env.get("AAPT2"))
 
 
 def digest(path):
@@ -35,6 +57,7 @@ def require_passing_tests(counts):
 
 
 def stage(root, env):
+    variant = build_variant(env)
     counts = dict(tests=0, failures=0, errors=0, skipped=0)
     required = {"KeyImportTest", "SshIntegrationTest", "SftpIntegrationTest", "TextFileTest"}
     for report in Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"):
@@ -46,13 +69,19 @@ def stage(root, env):
     if required:
         raise ValueError("Required integration suites are missing")
     root.mkdir(parents=True, exist_ok=False)
-    shutil.copyfile("app/build/outputs/apk/debug/app-debug.apk", root / APKS[0])
-    shutil.copyfile("app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk", root / APKS[1])
+    if variant == "personal":
+        shutil.copyfile("app/build/outputs/apk/personal/app-personal-unsigned.apk", root / "app-personal.apk")
+        verify_personal_bundle(root, env)
+    else:
+        shutil.copyfile("app/build/outputs/apk/debug/app-debug.apk", root / APKS[0])
+        shutil.copyfile("app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk", root / APKS[1])
     info = {"commit": env["GITHUB_SHA"], "run_id": env["GITHUB_RUN_ID"],
             "run_attempt": env["GITHUB_RUN_ATTEMPT"], "jvm": counts,
             "device_acceptance": "NOT EXECUTED"}
+    if variant == "personal":
+        info["build_variant"] = variant
     (root / "build-info.json").write_text(json.dumps(info, indent=2) + "\n")
-    (root / "SHA256SUMS").write_text("".join(f"{digest(root / name)}  {name}\n" for name in PAYLOADS))
+    (root / "SHA256SUMS").write_text("".join(f"{digest(root / name)}  {name}\n" for name in payload_names(env)))
     print("Staged tablet-test APKs with source-bound validation evidence:", counts)
 
 
@@ -68,19 +97,22 @@ def require_dispatch(env):
 
 
 def verify_bundle(root, env):
-    if set(p.name for p in root.iterdir()) != {*PAYLOADS, "SHA256SUMS"}:
+    payloads = payload_names(env)
+    if set(p.name for p in root.iterdir()) != {*payloads, "SHA256SUMS"}:
         raise ValueError("Unexpected or missing bundle files")
-    if any((root / name).is_symlink() for name in (*PAYLOADS, "SHA256SUMS")):
+    if any((root / name).is_symlink() for name in (*payloads, "SHA256SUMS")):
         raise ValueError("Bundle files must not be symbolic links")
     expected = {}
     for line in (root / "SHA256SUMS").read_text().splitlines():
         checksum, name = line.split("  ", 1)
-        if name not in PAYLOADS or name in expected or len(checksum) != 64:
+        if name not in payloads or name in expected or not re.fullmatch(r"[0-9a-f]{64}", checksum):
             raise ValueError("Invalid checksum manifest")
         expected[name] = checksum
-    if set(expected) != set(PAYLOADS) or any(digest(root / name) != value for name, value in expected.items()):
+    if set(expected) != set(payloads) or any(digest(root / name) != value for name, value in expected.items()):
         raise ValueError("Bundle checksum verification failed")
     info = json.loads((root / "build-info.json").read_text())
+    if info.get("build_variant", "debug") != build_variant(env):
+        raise ValueError("Bundle build variant does not match the requested publication")
     if any(info[field] != env[key] for field, key in
            (("commit", "GITHUB_SHA"), ("run_id", "GITHUB_RUN_ID"), ("run_attempt", "GITHUB_RUN_ATTEMPT"))):
         raise ValueError("Bundle does not belong to this source commit and workflow run")
@@ -126,12 +158,31 @@ def require_stable_signing(root, info, env):
     pin = certificate_pin(env)
     if info.get("signing") != {"kind": "stable-tablet-test", "certificate_sha256": pin}:
         raise ValueError("The bundle must have verified stable tablet-test signing")
-    for name in APKS:
+    verify_personal_bundle(root, env)
+    for name in apk_names(env):
         verify_apk_certificate(root / name, env)
 
 
 def release_notes(info, checksums, env):
     date = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d")
+    if build_variant(env) == "personal":
+        return date, f"""Android 11+ 非 debug 自用驗收版，不是商店正式發行版，尚未完成真機驗收。
+
+下載 app-personal.apk，直接嘗試覆蓋目前的 SSHBorgDebug；名稱保留以避免混淆現有資料。
+套件 com.sshborg.debug、固定測試簽章與下載資料夾不變；關閉 debuggable，使用 R8／資源縮減。
+請勿為了安裝而解除安裝或清除資料。若更新失敗，保留舊 app 並回報錯誤。
+同套件、同憑證、版本碼未降低只是保留資料更新的必要條件，不是 Keystore 相容性保證。
+請用可拋棄憑證測試既有設定與金鑰、指紋／PIN、SSH／SFTP／重連、取消／切背景拒絕連線。
+設定匯出不含憑證；請另行保管原始私鑰，不要提供 PIN、私鑰或帳密。
+這份非 debug APK 不啟用測試 instrumentation，沒有對應的 device-test APK。
+
+JVM／loopback SSH/SFTP：{info['jvm']['tests']} 項通過，零失敗、零跳過（debug JVM 測試，非 R8 裝置驗收）。
+來源提交：{info['commit']}
+建置紀錄：https://github.com/{REPO}/actions/runs/{env['GITHUB_RUN_ID']}
+APK SHA-256：{checksums['app-personal.apk']}
+測試簽章 SHA-256：{info['signing']['certificate_sha256']}
+完整校驗碼與來源資訊見 SHA256SUMS、build-info.json 附件。
+"""
     return date, f"""Android 11+ 平板驗收測試版。僅供測試，尚未完成真機驗收；請勿使用重要憑證或正式伺服器帳密。
 
 下載 **app-debug.apk**，安裝後開啟 **SSHBorgDebug**。不需要電腦或 ADB。
@@ -159,10 +210,12 @@ def publish(root, env, api=gh_api, upload=None):
     require_dispatch(env)
     info, checksums = verify_bundle(root, env)
     require_stable_signing(root, info, env)
-    tag = f"tablet-test-{env['GITHUB_RUN_ID']}-{env['GITHUB_RUN_ATTEMPT']}"
+    prefix = "personal-test" if build_variant(env) == "personal" else "tablet-test"
+    tag = f"{prefix}-{env['GITHUB_RUN_ID']}-{env['GITHUB_RUN_ATTEMPT']}"
     date, notes = release_notes(info, checksums, env)
     endpoint = f"repos/{REPO}/releases"
-    data = dict(tag_name=tag, target_commitish=env["GITHUB_SHA"], name=f"Android 11+ tablet test — {date}",
+    title = "personal non-debug test" if build_variant(env) == "personal" else "tablet test"
+    data = dict(tag_name=tag, target_commitish=env["GITHUB_SHA"], name=f"Android 11+ {title} — {date}",
                 body=notes, draft=True, prerelease=True, make_latest="false")
     old = api(f"{endpoint}/{OLD_DRAFT_ID}")
     if old.get("draft") is True and old.get("prerelease") is True and old.get("tag_name") == OLD_DRAFT_TAG and old.get("assets") == []:

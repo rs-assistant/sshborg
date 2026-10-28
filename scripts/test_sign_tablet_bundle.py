@@ -18,6 +18,8 @@ import tablet_release as release
 
 
 class TabletSigningTest(unittest.TestCase):
+    variant = "debug"
+
     def test_real_signing_check_cannot_pass_when_refusal_is_removed(self):
         with self.assertRaises(RuntimeError):
             expect_refusal(lambda: None, "fixture unexpectedly accepted")
@@ -40,14 +42,22 @@ class TabletSigningTest(unittest.TestCase):
                         RUNNER_TEMP=self.tmp.name,
                         TABLET_TEST_KEYSTORE_B64=base64.b64encode(b"disposable fixture").decode(),
                         TABLET_TEST_STORE_PASSWORD="disposable-fixture-password")
+        self.env.update(TABLET_BUILD_VARIANT=self.variant, AAPT2="fixture-aapt2")
+        self.apks, self.payloads = release.apk_names(self.env), release.payload_names(self.env)
+        if self.variant == "personal":
+            inspector = patch("tablet_release.check_apk")
+            self.inspector = inspector.start()
+            self.addCleanup(inspector.stop)
         info = dict(commit="a" * 40, run_id="123", run_attempt="1",
                     jvm=dict(tests=1, failures=0, errors=0, skipped=0), device_acceptance="NOT EXECUTED")
+        if self.variant == "personal":
+            info["build_variant"] = "personal"
         (self.root / "build-info.json").write_text(json.dumps(info))
-        for name in release.APKS:
+        for name in self.apks:
             (self.root / name).write_bytes(b"disposable APK fixture")
         (self.root / "SHA256SUMS").write_text("".join(
-            f"{release.digest(self.root / name)}  {name}\n" for name in release.PAYLOADS))
-        self.original = {name: (self.root / name).read_bytes() for name in (*release.PAYLOADS, "SHA256SUMS")}
+            f"{release.digest(self.root / name)}  {name}\n" for name in self.payloads))
+        self.original = {name: (self.root / name).read_bytes() for name in (*self.payloads, "SHA256SUMS")}
         self.calls = []
         self.private_paths = []
         self.fail_second_sign = False
@@ -64,7 +74,7 @@ class TabletSigningTest(unittest.TestCase):
             self.assertNotIn(self.env["TABLET_TEST_STORE_PASSWORD"], " ".join(command))
             self.assertNotIn("TABLET_TEST_KEYSTORE_B64", kwargs["env"])
             self.assertEqual(self.env["TABLET_TEST_STORE_PASSWORD"], kwargs["env"]["TABLET_TEST_STORE_PASSWORD"])
-            if self.fail_second_sign and len(self.private_paths) == 2:
+            if self.fail_second_sign and len(self.private_paths) == len(self.apks):
                 raise subprocess.CalledProcessError(1, command, stderr=b"fixture failure")
             Path(command[command.index("--out") + 1]).write_bytes(Path(command[-1]).read_bytes() + b" signed")
             return SimpleNamespace(stdout="")
@@ -86,9 +96,9 @@ class TabletSigningTest(unittest.TestCase):
         self.assertEqual(dict(kind="stable-tablet-test", certificate_sha256="b" * 64), info["signing"])
         self.assertEqual("NOT EXECUTED", info["device_acceptance"])
         self.assertEqual("a" * 40, info["commit"])
-        for name in release.APKS:
+        for name in self.apks:
             self.assertEqual(self.original[name] + b" signed", (self.root / name).read_bytes())
-        self.assertEqual(2, len(self.private_paths))
+        self.assertEqual(len(self.apks), len(self.private_paths))
         self.assertTrue(all(not path.exists() for path in self.private_paths))
         self.assertEqual(set(self.original), {path.name for path in self.root.iterdir()})
 
@@ -117,7 +127,7 @@ class TabletSigningTest(unittest.TestCase):
         self.assert_original()
 
     def test_tampered_bundle_is_refused_before_loading_the_key(self):
-        (self.root / release.APKS[0]).write_bytes(b"tampered")
+        (self.root / self.apks[0]).write_bytes(b"tampered")
         with self.assertRaises(ValueError):
             self.sign()
         self.assertEqual([], self.calls)
@@ -128,7 +138,7 @@ class TabletSigningTest(unittest.TestCase):
             self.sign()
         self.assert_original()
 
-    def test_second_signing_failure_leaves_original_bundle_and_cleans_the_key(self):
+    def test_last_signing_failure_leaves_original_bundle_and_cleans_the_key(self):
         self.fail_second_sign = True
         with self.assertRaises(ValueError):
             self.sign()
@@ -137,7 +147,7 @@ class TabletSigningTest(unittest.TestCase):
     def test_invalid_signature_exit_status_is_not_treated_as_a_certificate_match(self):
         with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, ["fixture-apksigner"])):
             with self.assertRaises(ValueError):
-                release.verify_apk_certificate(self.root / release.APKS[0], self.env)
+                release.verify_apk_certificate(self.root / self.apks[0], self.env)
 
     def test_cli_failure_does_not_print_secret_values_or_tool_output(self):
         tool = Path(self.tmp.name) / "fixture-signer"
@@ -146,6 +156,8 @@ class TabletSigningTest(unittest.TestCase):
             "print(os.environ['TABLET_TEST_STORE_PASSWORD'], file=sys.stderr)\n"
             "print('fixture signer diagnostic', file=sys.stderr)\nsys.exit(1)\n")
         tool.chmod(0o700)
+        # The subprocess cannot inherit the fake personal-manifest inspector in this unit
+        # test; the real personal path is exercised by check_tablet_signing.py instead.
         for encoded in ("disposable-secret-marker!", self.env["TABLET_TEST_KEYSTORE_B64"]):
             with self.subTest(encoded_valid=encoded == self.env["TABLET_TEST_KEYSTORE_B64"]):
                 env = {**os.environ, **self.env, "TABLET_TEST_KEYSTORE_B64": encoded, "APKSIGNER": str(tool)}
@@ -159,6 +171,23 @@ class TabletSigningTest(unittest.TestCase):
                 for value in (encoded, env["TABLET_TEST_STORE_PASSWORD"]):
                     self.assertNotIn(value, result.stderr)
                 self.assert_original()
+
+
+class PersonalSigningTest(TabletSigningTest):
+    variant = "personal"
+
+    def test_compiled_manifest_is_checked_before_any_key_file_or_signer(self):
+        self.inspector.side_effect = ValueError("debug APK disguised as personal")
+        with self.assertRaises(ValueError):
+            self.sign()
+        self.assertEqual([], self.calls)
+        self.assert_original()
+
+    def test_changed_compiled_manifest_after_signing_leaves_the_original_untouched(self):
+        self.inspector.side_effect = [None, ValueError("signer output is invalid")]
+        with self.assertRaises(ValueError):
+            self.sign()
+        self.assert_original()
 
 
 if __name__ == "__main__":
