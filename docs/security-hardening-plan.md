@@ -8,6 +8,8 @@ remaining device/security checks pass. See [the 2026-10-22 follow-up review](sec
 for subsequent fixes and validation, and [backup safety](backup-safety.md) for format 8 compatibility.
 The [2026-10-27 non-device validation](non-device-validation-2026-10-27.md) records subsequent
 local signing-regression coverage, build/test results, fixed translation lint errors, and remaining warnings.
+The [Lint triage follow-up](lint-triage-2026-10-27.md) adds explicit backup/transfer exclusions,
+offline bundle language availability, and missing plural forms, reducing local warnings from 50 to 36.
 
 ## Threat model
 A local attacker with an unlocked phone or an application bypass must not initiate a new SSH/SFTP connection without a fresh Android biometric or device-credential confirmation. Authentication of a UI screen is insufficient if ViewModel methods can still connect independently.
@@ -192,11 +194,13 @@ rule is intentionally retained, so any device where PIN itself stops the Activit
 fails closed. Do not weaken that rule or mark PIN supported without device-tested handling.
 An application-level dynamic network audit and release acceptance remain outstanding.
 
-Before production publishing, align the website's translated security text (which still describes
-the released app's optional encryption policy) with the accepted device behavior. Core migration,
-prompt and backup messages now have translations in the nine existing non-English locales;
-human language/layout and TV acceptance remain required. Minimum Android badges are updated for
-this branch. A test APK was published, but no production release or website deployment was made.
+Website source copy and 20 generated index/guide pages now distinguish this Android test branch
+from store releases and the separate iOS app. The ten locales describe mandatory credential
+protection, per-use authorization, explicit verified migration, backup limits and device-dependent
+hardware backing; see [website copy review](website-security-copy-review.md). These local drafts
+and the updated Android privacy-policy paragraphs still need native-language, layout and release
+review. Core app messages also have translations in the nine non-English locales; TV and full
+device/security acceptance remain required. No production release or website deployment was made.
 
 ## Tablet-test prerelease delivery
 

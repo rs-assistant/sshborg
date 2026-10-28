@@ -554,6 +554,7 @@
 
     <!-- Content -->
     <div class="doc-content">
+        <aside class="callout callout-warn" data-policy="test-branch" role="note"><p><strong>Ramo di test Android 11+ con sicurezza rafforzata, non la versione dello store. La verifica completa su dispositivi e della sicurezza non è conclusa: usare credenziali di prova. Queste regole Android non descrivono iOS.</strong></p></aside>
 
         <div class="doc-section" id="adding-host">
 
@@ -688,18 +689,18 @@ chmod 600 ~/.ssh/authorized_keys</code></pre>
                 <div class="callout-label">// REQUISITO SERVER</div>
                 Assicurati che il server abbia <code>PubkeyAuthentication yes</code> in <code>/etc/ssh/sshd_config</code>. È il valore predefinito sulla maggior parte delle distribuzioni, ma alcune immagini hardened lo disabilitano.
             </div>
-            <h3>Cifrare chiavi e password salvate</h3>
-            <p>Attiva <strong>Impostazioni → Sicurezza → Cifra dati sensibili</strong> per conservare le chiavi private e le password degli host cifrate con una chiave custodita nell'hardware sicuro del dispositivo — l'Android Keystore, o il Portachiavi su iOS. Resta disattivata finché non la abiliti; il consiglio di sicurezza mostrato al primo avvio la segnala.</p>
-            <p>I dati cifrati sono legati al dispositivo e a questa installazione dell'app: dopo la disinstallazione le chiavi salvate non si possono recuperare, e dovresti generarne di nuove e autorizzarle di nuovo sui server. Insieme a un blocco app, è fortemente consigliata se conservi sul telefono credenziali sensibili.</p>
-            <p>Una chiave protetta da passphrase la chiede una volta sola, al momento dell'importazione, e viene poi conservata aperta: la passphrase non viene scritta sul dispositivo. Una passphrase di solito è riusata altrove, mentre una chiave privata vale solo per sé — e una chiave conservata accanto alla propria passphrase non ne sarebbe protetta comunque. Qui la proteggono lo spazio privato dell'app, <strong>Cifra dati sensibili</strong> e il blocco dell'app. Una chiave importata da una versione precedente è rimasta cifrata e non può autenticarsi: nella lista sono segnalate, e vanno importate di nuovo.</p>
+            <h3>Ramo di test Android: credenziali protette</h3>
+            <div data-platform="android-test">
+            <p data-policy="storage">Chiavi private e password salvate devono essere cifrate con una chiave Android Keystore autenticata. Non esiste un interruttore di cifratura facoltativa. La protezione hardware dipende dal dispositivo.</p>
+            <p data-policy="auth">Ogni nuova connessione SSH/SFTP, tentativo o riconnessione richiede una nuova autorizzazione. Ogni credenziale salvata, inclusa ogni credenziale dei salti, richiede inoltre una propria conferma crittografica di sistema. Annullamento o passaggio in background rifiutano le operazioni in attesa.</p>
+            <p data-policy="migration">Le vecchie credenziali cifrate richiedono una migrazione esplicita nelle Impostazioni: autorizzare lettura, cifratura e una rilettura verificata separata prima della sostituzione. Annullamento o errore conservano l’originale. Chiavi precedenti mancanti, record in chiaro o danneggiati richiedono una nuova importazione o immissione; ciò non cancella le vecchie pagine del database.</p>
+            <p data-policy="backup">Le esportazioni delle configurazioni escludono chiavi private, password e chiavi host memorizzate. Disinstallare o cancellare i dati può rendere inaccessibili le credenziali. Non disinstallare per risolvere conflitti di firma; predisporre separatamente una nuova chiave e il recupero dell’accesso al server.</p>
             <p>Due formati cifrati che l'app non sa aprire: il contenitore di OpenSSL (<code>BEGIN ENCRYPTED PRIVATE KEY</code>) e il <code>.ppk</code> di PuTTY. L'importazione lo dice, invece di prendere la chiave a metà. Decifrala con lo strumento che l'ha creata e importala di nuovo — lavorando su una copia, non sull'unico file che hai:</p>
             <pre><code>ssh-keygen -p -N "" -f id_ed25519_copy
 openssl pkcs8 -in key.pem -out key_plain.pem</code></pre>
             <p>PuTTYgen converte un <code>.ppk</code> da <em>Conversions → Export OpenSSH key</em>.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                Su iOS funziona allo stesso modo: la passphrase viene chiesta una volta sola, all'importazione, la chiave è conservata aperta e la passphrase non viene scritta da nessuna parte. Rifiuta un formato in più rispetto ad Android: oltre al contenitore di OpenSSL e al <code>.ppk</code> di PuTTY, anche la vecchia cifratura PEM (<code>Proc-Type: 4,ENCRYPTED</code>), quella che <code>ssh-keygen -m PEM</code> scrive quando gli si dà una passphrase. Decifra una chiave così e importala di nuovo.
             </div>
+            <div data-platform="ios"><p>iOS è un’app separata. Le regole Android di autenticazione, migrazione e backup sopra non si applicano: consultare il <a href="https://github.com/payne1982/sshborg-ios">progetto iOS</a>.</p></div>
         </div>
 
         <div class="doc-section" id="suggestions">
@@ -981,42 +982,24 @@ Host target
         <div class="doc-section" id="security">
 
             <h2>// SICUREZZA DELL'APP</h2>
-            <h3>Blocco app</h3>
-            <p>Scegli come proteggere l'app in <strong>Impostazioni → Sicurezza → Blocco app</strong>: <strong>Nessuno</strong> (predefinito), <strong>Solo biometrico</strong> (impronta digitale o riconoscimento facciale), <strong>Blocco del dispositivo</strong> (il PIN, la sequenza o la password del dispositivo, oltre alla biometria) o un <strong>PIN o passphrase</strong> in-app. Quando un blocco è attivo, SSHBorg richiede l'autenticazione prima di mostrare qualsiasi host, credenziale o dato di sessione. Se l'autenticazione viene rifiutata, o la annulli, l'app resta sulla propria schermata di blocco con un pulsante per riprovare: non si chiude, quindi le sessioni che avevi aperte sono ancora lì quando sblocchi.</p>
-            <p>Il <strong>PIN o passphrase</strong> in-app funziona su qualsiasi dispositivo, anche senza hardware biometrico o un blocco schermo di sistema — per questo è la scelta giusta su una Android TV. Per cambiarlo o rimuoverlo viene chiesto prima quello attuale. Non è recuperabile se dimenticato: dovresti cancellare i dati dell'app o reinstallarla, quindi tieni un backup dei tuoi host.</p>
-            <p>Puoi impostare un timeout di inattività — dopo quel tempo in background l'app si blocca automaticamente.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                Il blocco offre <strong>Nessuno</strong>, <strong>Solo biometrico</strong> (Face ID o Touch ID) e <strong>Blocco del dispositivo</strong> (il codice del dispositivo o la biometria). Non esiste un PIN o una passphrase in-app.
-            </div>
+            <div data-platform="android-test">
+            <p data-policy="lock">Sono necessari un blocco schermo sicuro e una biometria forte oppure il PIN, la sequenza o la password del dispositivo. Il blocco app o il PIN interno proteggono l’interfaccia, ma non sostituiscono l’autorizzazione a decifrare le credenziali.</p>
+            <p data-policy="storage">Chiavi private e password salvate devono essere cifrate con una chiave Android Keystore autenticata. Non esiste un interruttore di cifratura facoltativa. La protezione hardware dipende dal dispositivo.</p>
+            <p data-policy="auth">Ogni nuova connessione SSH/SFTP, tentativo o riconnessione richiede una nuova autorizzazione. Ogni credenziale salvata, inclusa ogni credenziale dei salti, richiede inoltre una propria conferma crittografica di sistema. Annullamento o passaggio in background rifiutano le operazioni in attesa.</p>
+            <p data-policy="migration">Le vecchie credenziali cifrate richiedono una migrazione esplicita nelle Impostazioni: autorizzare lettura, cifratura e una rilettura verificata separata prima della sostituzione. Annullamento o errore conservano l’originale. Chiavi precedenti mancanti, record in chiaro o danneggiati richiedono una nuova importazione o immissione; ciò non cancella le vecchie pagine del database.</p>
+            <p data-policy="backup">Le esportazioni delle configurazioni escludono chiavi private, password e chiavi host memorizzate. Disinstallare o cancellare i dati può rendere inaccessibili le credenziali. Non disinstallare per risolvere conflitti di firma; predisporre separatamente una nuova chiave e il recupero dell’accesso al server.</p>
+            <p data-policy="limits">Un sistema operativo compromesso o un’operazione già autorizzata restano fuori da queste garanzie. Le transizioni del PIN, Keystore e gli aggiornamenti con conservazione dei dati richiedono ancora verifiche sul dispositivo; nessuna garanzia hardware universale.</p>
             <h3>Protezione screenshot</h3>
             <p>Per impostazione predefinita SSHBorg blocca screenshot e registrazione dello schermo per evitare che il contenuto sensibile del terminale trapeli tramite la schermata delle app recenti o strumenti di cattura dello schermo.</p>
             <p>Se devi fare uno screenshot (es. per condividere un output del terminale), puoi disabilitare temporaneamente la protezione in <strong>Impostazioni → Sicurezza → Consenti screenshot</strong>.</p>
-            <div class="callout callout-ios">
-                <div class="callout-label">// iOS</div>
-                iOS non permette a un'app di bloccare screenshot o registrazioni dello schermo, quindi questa impostazione non esiste. Con un blocco app attivo, SSHBorg copre i propri contenuti appena lascia lo schermo, così host e terminali non compaiono nel multitasking.
             </div>
-            <h3>Archiviazione delle credenziali</h3>
-            <p>Con <strong>Cifra dati sensibili</strong> attiva (vedi <a href="#ssh-keys">Chiavi SSH</a>), password e chiavi private sono conservate cifrate con una chiave custodita nell'<strong>Android Keystore</strong> — basato su hardware su Android 10+ — o, su iOS, nel <strong>Portachiavi</strong>, limitata a questo dispositivo. Le credenziali non vengono mai scritte su storage esterno né trasmesse da nessuna parte.</p>
-            <div class="callout callout-warn">
-                <div class="callout-label">// NOTA SUL BACKUP</div>
-                Poiché la chiave di cifratura non lascia mai l'hardware sicuro del dispositivo, le chiavi <strong>non possono essere ripristinate</strong> da un backup cloud o del dispositivo e non si trasferiranno automaticamente su un nuovo telefono. Prima di cambiare dispositivo, assicurati di autorizzare una nuova chiave generata sul nuovo dispositivo su tutti i tuoi server.
-            </div>
-            <h3>L'impostazione più sicura</h3>
-            <p>Ognuno dei pezzi qui sopra serve già da solo. Messi insieme sono il massimo che l'app può offrire, e sono due minuti di lavoro:</p>
-            <ol>
-                <li>Attiva <strong>Impostazioni → Sicurezza → Cifra dati sensibili</strong>.</li>
-                <li>Imposta il blocco dell'app su <strong>Solo biometrico</strong> — oppure su <strong>PIN o passphrase</strong> se preferisci non affidarti alla biometria del telefono.</li>
-                <li>Imposta il timeout del blocco su <strong>Immediatamente</strong>, o al massimo <strong>30 secondi</strong>.</li>
-                <li>Genera una nuova chiave nell'app, con un nome che dica di quale dispositivo è.</li>
-                <li>Autorizza quella chiave sui tuoi server e usala invece della password.</li>
-            </ol>
-            <p>Una chiave generata sul telefono non è mai esistita altrove: non c'è una copia più vecchia che possa già essere sfuggita, e non c'è niente da ripulire su un'altra macchina. Una chiave per dispositivo significa anche che perdere il telefono costa una riga in <code>authorized_keys</code> — la togli e gli altri dispositivi continuano a funzionare, ed è per questo che vale la pena scegliere bene il nome.</p>
-            <p>Quello che niente di tutto questo può fare: se il telefono stesso è compromesso, quella chiave è compromessa con lui, qualunque cosa la protegga su disco. Nemmeno una passphrase sulla chiave la salverebbe — chi riesce a leggere lo spazio dell'app riesce anche a leggere quello che digiti. È per questo che SSHBorg chiede la passphrase di una chiave una volta sola, all'importazione, e conserva la chiave aperta invece di tenere la passphrase (vedi <a href="#ssh-keys">Chiavi SSH</a>).</p>
+            <div data-platform="ios"><p>iOS è un’app separata. Le regole Android di autenticazione, migrazione e backup sopra non si applicano: consultare il <a href="https://github.com/payne1982/sshborg-ios">progetto iOS</a>.</p></div>
         </div>
 
         <div class="doc-section" id="backup">
 
+            <div data-platform="android-test" data-backup-format="8">
+            <p data-policy="backup-format">Il ramo di test Android usa il formato di backup 8. Si esporta solo configurazione, mai credenziali o chiavi host fidate. iOS ha un’implementazione separata: questo formato e queste regole di rifiuto non lo descrivono.</p>
             <h2>// BACKUP CONFIGURAZIONE</h2>
             <p>SSHBorg può esportare e importare le configurazioni degli host e le impostazioni dell'app come file JSON. Questo permette di trasferire la lista dei server su un altro dispositivo o di conservare un backup portabile della propria configurazione.</p>
             <div class="callout callout-warn">
@@ -1031,14 +1014,14 @@ Host target
                 <li>Gli host il cui <strong>nome</strong> corrisponde a un host esistente vengono <strong>aggiornati</strong>.</li>
                 <li>Gli host con un nome nuovo vengono <strong>aggiunti</strong>.</li>
                 <li>Gli host non presenti nel file rimangono <strong>invariati</strong>.</li>
-                <li>Un host aggiornato mantiene password, chiave e chiave host accettata già salvate — il backup non le contiene.</li>
-                <li>Un host senza chiave viene collegato a una chiave il cui nome corrisponde al <code>keyLabel</code> esportato, se esiste; altrimenti il campo viene ignorato.</li>
+                <li data-policy="pin-retention">Un host aggiornato conserva le credenziali attuali. La fiducia nella chiave host resta solo se nome host e porta non cambiano; un nuovo endpoint richiede verifica.</li>
+                <li data-policy="key-reference">Una chiave SSH indicata per nome deve essere identificata univocamente prima dell’importazione. Chiavi mancanti o ambigue fanno rifiutare l’importazione, senza passare alla password.</li>
                 <li>Un host aggiornato mantiene i dati d'uso già presenti su questo dispositivo — ultima connessione, contatore e posizione manuale; il file riempie solo ciò che manca.</li>
-</ul>
+            </ul>
             <h3>Formato JSON</h3>
             <p>Il file esportato è un normale oggetto JSON. È possibile crearlo manualmente per importare in blocco una lista di server da un'altra fonte.</p>
             <pre><code>{
-  "version": 7,
+  "version": 8,
   "exported_at": "2026-05-14T10:00:00Z",
   "groups": [
     { "name": "Produzione", "color": -1754827, "position": 0 }
@@ -1052,7 +1035,7 @@ Host target
       "agentForwarding": false,
       "jumpMode":        "simple",
       "jumpHosts":       null,
-      "jumpHostIdList":  null,
+      "jumpHostLabels": [],
       "portForwardings": null,
       "sftpStartMode":   "last",
       "sftpStartDir":    null,
@@ -1081,14 +1064,14 @@ Host target
                 <li><code>port</code> — porta SSH. Valore predefinito: <code>22</code>.</li>
                 <li><code>username</code> — utente di login. <strong>Obbligatorio.</strong></li>
                 <li><code>agentForwarding</code> — <code>true</code> per abilitare il forwarding dell'agente SSH. Valore predefinito: <code>false</code>.</li>
-                <li><code>jumpMode</code> — <code>"simple"</code> (usa il testo di <code>jumpHosts</code>) o <code>"host_list"</code> (usa gli ID interni di SSHBorg). Usa <code>"simple"</code> quando crei il file manualmente.</li>
+                <li><code>jumpMode</code> — <code>simple</code> / <code>host_list</code>. Per host_list usare jumpHostLabels ordinati (nomi host), mai ID di righe locali. Salti mancanti o ambigui fanno rifiutare l’intera importazione; gruppi e host sono ripristinati atomicamente.</li>
                 <li><code>jumpHosts</code> — lista di jump host separati da virgola nel formato <code>[utente@]host[:porta]</code>. Usato solo con <code>jumpMode</code> <code>"simple"</code>.</li>
                 <li><code>portForwardings</code> — regole di port forwarding locale separate da newline in sintassi SSH <code>-L</code>, es. <code>"8080:localhost:8080"</code>.</li>
                 <li><code>sftpStartMode</code> — cartella iniziale SFTP: <code>"last"</code> (ricorda l'ultima visitata), <code>"fixed"</code> (usa sempre <code>sftpStartDir</code>), <code>"home"</code> (home del server). Valore predefinito: <code>"last"</code>.</li>
                 <li><code>sftpStartDir</code> — percorso da usare quando <code>sftpStartMode</code> è <code>"fixed"</code>.</li>
                 <li><code>sftpShowHidden</code> — <code>true</code> per mostrare i file nascosti (dotfile, nomi che iniziano con ".") nel browser SFTP di questo host. Predefinito <code>false</code>.</li>
                 <li><code>allowLegacyCiphers</code> — <code>true</code> per abilitare gli algoritmi legacy descritti sopra. Predefinito: <code>false</code>.</li>
-                <li><code>keyLabel</code> — nome della chiave SSH usata da questo host. All'importazione, se esiste una chiave con questo nome viene collegata all'host; altrimenti il campo viene ignorato. La chiave stessa non è mai inclusa nel backup.</li>
+                <li><code>keyLabel</code> — Una chiave SSH indicata per nome deve essere identificata univocamente prima dell’importazione. Chiavi mancanti o ambigue fanno rifiutare l’importazione, senza passare alla password.</li>
                 <li><code>group</code> — nome del gruppo a cui appartiene l'host. I gruppi sono elencati nell'array <code>groups</code> in cima al file, con <code>name</code> e <code>color</code> (ARGB come intero a 32 bit con segno). Se un host fa riferimento a un gruppo assente dall'array, il gruppo viene creato automaticamente con un colore predefinito: scrivendo il file a mano puoi quindi omettere l'array.</li>
                 <li><code>color</code> — colore opzionale del singolo host (ARGB come intero a 32 bit con segno). Prevale sul colore del gruppo.</li>
                             <li><code>position</code> — posto dell'host nell'ordine manuale, contato dentro la sua sezione (il blocco senza gruppo, oppure un gruppo). Se lo ometti l'host viene accodato in fondo. Anche i gruppi hanno una loro <code>position</code> nell'array <code>groups</code>.</li>
@@ -1098,12 +1081,13 @@ Host target
             <div class="callout callout-info">
                 <div class="callout-label">// CAMPI OPZIONALI</div>
                 Tutti i campi eccetto <code>label</code>, <code>hostname</code> e <code>username</code> sono opzionali. I campi omessi riprendono i valori predefiniti.
-            </div>
+            </div>            </div>
         </div>
 
         <div class="doc-section" id="android-tv">
 
             <h2>// ANDROID TV</h2>
+            <p data-policy="tv-auth">Sono necessari un blocco schermo sicuro e una biometria forte oppure il PIN, la sequenza o la password del dispositivo. Il blocco app o il PIN interno proteggono l’interfaccia, ma non sostituiscono l’autorizzazione a decifrare le credenziali.</p>
             <p>SSHBorg funziona su Android TV e Google TV. Si usa con il D-pad del telecomando, ma trattandosi di un'app molto basata sul testo, una tastiera fisica fa una grande differenza.</p>
             <h3>Navigare col telecomando</h3>
             <ul>

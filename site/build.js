@@ -209,13 +209,28 @@ ${items}
 }
 
 // ── Build ──────────────────────────────────────────────────────────────────────
-function build() {
+function parsePages(args) {
+  if (args.length === 0) return PAGES;
+  if (args.length !== 2 || args[0] !== '--pages') throw new Error('Usage: node site/build.js [--pages index,docs]');
+  const pages = args[1].split(',');
+  if (pages.some(p => !PAGES.includes(p)) || new Set(pages).size !== pages.length) {
+    throw new Error('Unknown or duplicate page selection');
+  }
+  return pages;
+}
+
+function build(pages = PAGES) {
   const sitemapPages = new Set();
   let built = 0;
 
-  const releases = { Android: androidReleases(), iOS: iosReleases() };
-  for (const [platform, list] of Object.entries(releases)) {
-    console.log(`  •  ${platform}: ${list.length} released version${list.length === 1 ? '' : 's'}`);
+  const needsChangelog = pages.some(page => CHANGELOG_PAGES[page]);
+  const releases = needsChangelog ? { Android: androidReleases(), iOS: iosReleases() } : { Android: [], iOS: [] };
+  if (needsChangelog) {
+    for (const [platform, list] of Object.entries(releases)) {
+      console.log(`  •  ${platform}: ${list.length} released version${list.length === 1 ? '' : 's'}`);
+    }
+  } else {
+    console.log('  •  Release history not read for selected content pages');
   }
 
   for (const lang of LANGUAGES) {
@@ -226,7 +241,7 @@ function build() {
     delete require.cache[i18nPath];
     const tr = require(i18nPath);
 
-    for (const page of PAGES) {
+    for (const page of pages) {
       const cl = CHANGELOG_PAGES[page];
       // No tagged release for that platform (or no iOS repo here): leave its page untouched.
       if (cl && releases[cl.platform].length === 0) continue;
@@ -256,6 +271,12 @@ function build() {
     }
   }
 
+  // Partial content updates must not rewrite the release history or omit existing sitemap URLs.
+  if (pages.length !== PAGES.length) {
+    console.log(`\nPartial build complete — ${built} pages generated; sitemap unchanged.\n`);
+    return;
+  }
+
   // ── sitemap.xml ─────────────────────────────────────────────────────────────
   let urlset = '';
   for (const page of sitemapPages) {
@@ -281,4 +302,5 @@ ${urlset}</urlset>`;
   console.log(`\nBuild complete — ${built} pages generated.\n`);
 }
 
-build();
+if (require.main === module) build(parsePages(process.argv.slice(2)));
+module.exports = { parsePages, LANGUAGES, PAGES };

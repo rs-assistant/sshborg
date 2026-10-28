@@ -26,6 +26,21 @@ class SecurityPolicyTest(unittest.TestCase):
         del sources["migration"]
         self.assertTrue(check_sources(sources))
 
+    def test_backup_exclusions_cannot_be_removed_or_narrowed(self):
+        for name, old, new in (
+            ("manifest", 'android:fullBackupContent="false"', 'android:fullBackupContent="true"'),
+            ("manifest", 'android:dataExtractionRules="@xml/data_extraction_rules"', ""),
+            ("extraction_rules", '<device-transfer>', '<other-transfer>'),
+            ("extraction_rules", 'domain="database"', 'domain="file"'),
+            ("extraction_rules", 'domain="device_sharedpref"', 'domain="sharedpref"'),
+            ("extraction_rules", 'path="."', 'path="one-file"'),
+            ("extraction_rules", '<exclude ', '<include ')):
+            with self.subTest(name=name, old=old):
+                self.assertTrue(self.mutated(name, old, new))
+
+    def test_language_splitting_cannot_break_offline_locale_switching(self):
+        self.assertTrue(self.mutated("build", "enableSplit = false", "enableSplit = true"))
+
     def test_plaintext_key_persistence_is_detected(self):
         self.assertTrue(self.mutated("key_write", "package com.sshborg.ui.keys",
                                      "package com.sshborg.ui.keys\n// privateKeyPem = priv"))

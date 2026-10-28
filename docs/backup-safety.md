@@ -6,6 +6,20 @@ not exported or accepted from an imported host. Re-importing metadata preserves 
 local credential, including an unreadable blob; it never decrypts it or restores an older blob.
 This does not remove historical plaintext from SQLite pages, journals, or old backups.
 
+## Android automatic backup and device transfer
+
+Both build types keep `allowBackup=false`. The manifest also sets `fullBackupContent=false`
+and references Android 12+ `data_extraction_rules.xml`. Cloud backup and device-transfer rules
+explicitly exclude the entire root, files, databases, shared preferences, external files, and
+the four device-protected storage domains. This is defense in depth, not an export or migration
+mechanism. Manual metadata-only JSON export remains available as a separate user action.
+
+Source policy tests validate every domain in both transports, with mutations for missing or
+narrowed exclusions, accidental includes and changed manifest attributes. CI checks the merged
+debug manifest as well. AAPT compilation and these static checks do not prove OEM transports
+honor the policy: backup/restore and device-transfer behavior still require dedicated-device
+acceptance. No existing Android backup, app data or Keystore key is deleted by these rules.
+
 ## Portable relationships: format 8
 
 New exports use JSON `version: 8`. Key references use `keyLabel`, groups use `group`, and

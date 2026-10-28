@@ -284,6 +284,7 @@
     <string name="error_move_failed">Spostamento non riuscito</string>
     <plurals name="sftp_cut_pending">
         <item quantity="one">%1$d elemento da spostare da %2$s</item>
+        <item quantity="many">%1$d elementi da spostare da %2$s</item>
         <item quantity="other">%1$d elementi da spostare da %2$s</item>
     </plurals>
     <string name="sftp_menu_download_in_background">Scarica in background</string>
@@ -392,10 +393,12 @@
     <string name="notification_disconnect_all">Disconnetti tutto</string>
     <plurals name="notification_active_sessions">
         <item quantity="one">1 sessione attiva</item>
+        <item quantity="many">%d sessioni attive</item>
         <item quantity="other">%d sessioni attive</item>
     </plurals>
     <plurals name="notification_bg_downloads">
         <item quantity="one">1 file in download</item>
+        <item quantity="many">%d file in download</item>
         <item quantity="other">%d file in download</item>
     </plurals>
     <string name="settings_allow_screenshots_title">Consenti screenshot</string>

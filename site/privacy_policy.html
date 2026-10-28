@@ -84,11 +84,12 @@
 
         <h2>How Data Is Protected</h2>
 
-        <h3>On Android</h3>
+        <h3>Android 11+ security-hardening test branch</h3>
+        <p><strong>Scope:</strong> this Android test branch is not the store release and has not completed full device/security acceptance. The Android rules here do not describe iOS. Use disposable credentials while testing.</p>
         <ul>
-            <li>SSH private keys and saved passwords can optionally be encrypted using the <strong>Android Keystore</strong>, a hardware-backed secure storage system provided by your device. When enabled, encrypted data is bound to your device and app installation.</li>
-            <li>The app can optionally require <strong>biometric authentication</strong> (fingerprint, face, or device PIN) before granting access.</li>
-            <li>The app prevents screenshots and screen recording via the <code>FLAG_SECURE</code> flag.</li>
+            <li>Saved SSH private keys and passwords must be encrypted using an authenticated <strong>Android Keystore</strong> key. There is no optional encryption switch. Hardware backing depends on the device.</li>
+            <li>New SSH/SFTP connections require fresh authorization; each saved credential additionally requires its own system cryptographic confirmation. An optional app lock does not replace this requirement.</li>
+            <li>Android screen-capture protection uses <code>FLAG_SECURE</code> by default and can be disabled in Settings. It does not protect against a compromised OS or an external camera.</li>
         </ul>
 
         <h3>On iOS (iPhone and iPad)</h3>
@@ -111,7 +112,7 @@
         <p>The app requests the following Android permissions:</p>
         <ul>
             <li><strong>INTERNET</strong> — required to establish SSH/SFTP connections to your servers.</li>
-            <li><strong>USE_BIOMETRIC / USE_FINGERPRINT</strong> — optional, used only if you enable biometric lock.</li>
+            <li><strong>USE_BIOMETRIC / USE_FINGERPRINT</strong> — used for per-operation saved-credential authorization as well as the optional app lock. A secure screen lock and supported strong biometric or device-credential authentication are required for protected credentials.</li>
             <li><strong>FOREGROUND_SERVICE</strong> — used to show a persistent notification while SSH sessions are active.</li>
         </ul>
 
@@ -130,7 +131,7 @@
         <h3>On Android</h3>
         <p>All app data can be deleted at any time by uninstalling the app or clearing app data from Android Settings.</p>
         <div class="note">
-            <strong>Note:</strong> SSH private keys encrypted with the Android Keystore are permanently inaccessible after uninstalling the app. Export your public keys to your servers before uninstalling if needed.
+            <strong>Note:</strong> uninstalling or clearing app data can make Android Keystore-protected credentials inaccessible. Configuration exports exclude private keys, passwords and host-key pins. Do not uninstall to fix a signing conflict; prepare server-access recovery separately. Refusing old plaintext credentials does not erase historical database pages or backups.
         </div>
 
         <h3>On iOS (iPhone and iPad)</h3>

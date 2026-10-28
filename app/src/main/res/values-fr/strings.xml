@@ -284,6 +284,7 @@
     <string name="error_move_failed">Déplacement impossible</string>
     <plurals name="sftp_cut_pending">
         <item quantity="one">%1$d élément à déplacer depuis %2$s</item>
+        <item quantity="many">%1$d éléments à déplacer depuis %2$s</item>
         <item quantity="other">%1$d éléments à déplacer depuis %2$s</item>
     </plurals>
     <string name="sftp_menu_download_in_background">Télécharger en arrière-plan</string>
@@ -391,10 +392,12 @@
     <string name="notification_disconnect_all">Tout déconnecter</string>
     <plurals name="notification_active_sessions">
         <item quantity="one">%d session active</item>
+        <item quantity="many">%d sessions actives</item>
         <item quantity="other">%d sessions actives</item>
     </plurals>
     <plurals name="notification_bg_downloads">
         <item quantity="one">%d fichier en téléchargement</item>
+        <item quantity="many">%d fichiers en téléchargement</item>
         <item quantity="other">%d fichiers en téléchargement</item>
     </plurals>
     <string name="settings_allow_screenshots_title">Autoriser les captures d\'écran</string>

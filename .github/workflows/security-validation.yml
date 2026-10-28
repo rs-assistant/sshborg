@@ -47,6 +47,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Static credential policy checks
         run: python3 scripts/check_security_policy.py
+      - name: Test localized website security scope and generation
+        run: node --test site/test/security.test.js
       - name: Run JVM and local SSH/SFTP integration tests
         run: |
           python3 -m venv "$RUNNER_TEMP/sshborg-security-tests"
@@ -72,7 +74,9 @@ jobs:
               sys.exit('FAIL: minimum supported Android API must be 30')
           if app is None or app.get(ns + 'allowBackup') != 'false':
               sys.exit('FAIL: debug Android backup is not disabled')
-          print('PASS: debug allowBackup=false')
+          if app.get(ns + 'fullBackupContent') != 'false' or app.get(ns + 'dataExtractionRules') != '@xml/data_extraction_rules':
+              sys.exit('FAIL: explicit cloud/device-transfer exclusions are missing')
+          print('PASS: debug allowBackup=false and explicit extraction exclusions')
           PY
       - name: Stage verified tablet-test bundle
         run: |

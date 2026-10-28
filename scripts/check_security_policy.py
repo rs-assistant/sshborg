@@ -10,6 +10,8 @@ from xml.etree import ElementTree
 REPO = Path(__file__).resolve().parent.parent
 KOTLIN = "app/src/main/kotlin/com/sshborg/"
 FILES = {
+    "manifest": "app/src/main/AndroidManifest.xml",
+    "extraction_rules": "app/src/main/res/xml/data_extraction_rules.xml",
     "workflow": ".github/workflows/security-validation.yml",
     "build": "app/build.gradle.kts",
     "key_vm": KOTLIN + "ui/keys/KeysViewModel.kt",
@@ -43,6 +45,23 @@ SECURITY_STRINGS = {
 }
 
 
+def check_backup_exclusions(raw):
+    try:
+        root = ElementTree.fromstring(raw)
+    except ElementTree.ParseError:
+        return ["backup exclusion XML is invalid"]
+    domains = {"root", "file", "database", "sharedpref", "external", "device_root",
+               "device_file", "device_database", "device_sharedpref"}
+    if root.tag != "data-extraction-rules" or sorted(c.tag for c in root) != ["cloud-backup", "device-transfer"]:
+        return ["backup rules must cover cloud and device transfer"]
+    for section in root:
+        if (len(section) != len(domains) or
+                {node.get("domain") for node in section} != domains or
+                any(node.tag != "exclude" or node.get("path") != "." for node in section)):
+            return ["backup rules must exclude every credential and device-protected domain"]
+    return []
+
+
 def load_sources(repo=REPO):
     return {name: (repo / path).read_text(encoding="utf-8") for name, path in FILES.items()}
 
@@ -58,6 +77,18 @@ def check_sources(sources):
     if missing:
         return ["missing source: " + name for name in sorted(missing)]
     s = sources
+    errors.extend(check_backup_exclusions(s["extraction_rules"]))
+    try:
+        app = ElementTree.fromstring(s["manifest"]).find("application")
+        ns = "{http://schemas.android.com/apk/res/android}"
+        require("manifest keeps explicit backup exclusions", app is not None and
+                app.get(ns + "allowBackup") == "${allowBackup}" and
+                app.get(ns + "fullBackupContent") == "false" and
+                app.get(ns + "dataExtractionRules") == "@xml/data_extraction_rules")
+    except ElementTree.ParseError:
+        errors.append("Android manifest XML is invalid")
+    require("bundles keep languages available offline", bool(re.search(
+        r"bundle\s*\{\s*language\s*\{\s*enableSplit\s*=\s*false", s["build"])))
     require("Android 11 minimum and backups disabled", "minSdk = 30" in s["build"] and
             s["build"].count('manifestPlaceholders["allowBackup"] = "false"') == 2)
     require("encrypted-only key persistence", "privateKeyPem = priv" not in s["key_vm"] and

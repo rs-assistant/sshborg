@@ -49,6 +49,13 @@ android {
         }
     }
 
+    // All supported languages must remain available to the in-app locale switcher offline.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     // The exported schemas ride along in the test APK's assets, which is where
     // MigrationTestHelper looks for them.
     sourceSets["androidTest"].assets.directories.add("$projectDir/schemas")
